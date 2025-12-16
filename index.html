@@ -11,9 +11,9 @@
        ========================================================================== */
     :root {
         /* ライトモード定義 */
-        --bg-color: #f2f2f7;           /* 背景 */
-        --card-bg: #ffffff;            /* カード */
-        --text-color: #1c1c1e;         /* 文字 */
+        --bg-color: #f2f2f7;
+        --card-bg: #ffffff;
+        --text-color: #1c1c1e;
         
         --input-bg: #e5e5ea;
         --input-border: #d1d1d6;
@@ -27,11 +27,11 @@
         
         --final-bg: #3a3a3c;
         --final-text: #f2f2f7;
-        --danger-color: #ff3b30;       /* 赤（当たり・警告） */
-        --jackpot-glow: rgba(255, 59, 48, 0.6); /* 当たりの発光色 */
+        --danger-color: #ff3b30;
+        --jackpot-glow: rgba(255, 59, 48, 0.6);
         --shadow-color: rgba(0, 0, 0, 0.1);
         
-        --lightning-color: #007aff;    /* 高速モード（青） */
+        --lightning-color: #007aff;
         --tooltip-bg: rgba(40, 40, 40, 0.95);
         --tooltip-text: #ffffff;
     }
@@ -54,7 +54,7 @@
         
         --final-bg: #d1d1d6;
         --final-text: #1c1c1e;
-        --danger-color: #ff453a;       /* ダークモード用赤 */
+        --danger-color: #ff453a;
         --jackpot-glow: rgba(255, 69, 58, 0.6);
         --shadow-color: rgba(0, 0, 0, 0.5);
 
@@ -173,6 +173,7 @@
         flex: 1; text-align: left; 
         white-space: normal; word-break: break-word; overflow: visible; 
         pointer-events: auto; line-height: 1.4; padding: 2px 0;
+        user-select: none;
     }
 
     /* ハイライト設定 */
@@ -432,6 +433,42 @@
     #muteBtn:not(.muted) svg path.mute-x { display: none; }
     #muteBtn.muted .mute-x { display: block; }
 
+    /* ==========================================================================
+       7. 編集モーダル (Edit Modal)
+       ========================================================================== */
+    .modal {
+        display: none; 
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.5); z-index: 20000;
+        align-items: center; justify-content: center;
+        backdrop-filter: blur(2px);
+    }
+    .modal.show { display: flex; }
+    .modal-content {
+        background: var(--card-bg); border-radius: 12px;
+        padding: 24px; width: 90%; max-width: 400px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        display: flex; flex-direction: column; gap: 16px;
+    }
+    .modal-header { font-size: 18px; font-weight: bold; margin-bottom: 4px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+    .modal-body { display: flex; flex-direction: column; gap: 12px; }
+    .modal-row { display: flex; flex-direction: column; gap: 6px; }
+    .modal-label { font-size: 14px; opacity: 0.8; }
+    .modal-input {
+        padding: 8px 10px; font-size: 16px;
+        background: var(--input-bg); color: var(--text-color);
+        border: 1px solid var(--input-border); border-radius: 6px; outline: none;
+    }
+    .modal-slider-row {
+        display: flex; align-items: center; gap: 10px;
+    }
+    .modal-slider { flex: 1; cursor: pointer; }
+    .modal-number { width: 60px; text-align: center; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+    .modal-btn { padding: 8px 16px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+    .modal-btn-cancel { background: transparent; color: var(--text-color); border: 1px solid var(--border-color); }
+    .modal-btn-save { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+
     @media (max-width: 900px) {
         .container { flex-direction: column; align-items: center; gap: 30px; }
         .main { order: 1; margin: 0; }
@@ -445,7 +482,8 @@
 <body class="dark">
 <canvas id="confetti-canvas"></canvas>
 
-<button id="muteBtn" class="fixed-btn muted" title="ミュート解除" data-tooltip="効果音のオン/オフ">
+<!-- 固定ボタン群: 音量デフォルトON -->
+<button id="muteBtn" class="fixed-btn" data-tooltip="ミュートする">
     <svg viewBox="0 0 24 24">
         <path d="M3 9v6h4l5 5V4L7 9H3z"/>
         <path class="sound-wave" d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
@@ -455,7 +493,7 @@
     </svg>
 </button>
 
-<button id="darkModeBtn" class="fixed-btn" title="ダークモード切替">
+<button id="darkModeBtn" class="fixed-btn" data-tooltip="ダークモード切替">
     <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18c4.97 0 9-4.03 9-9a9 9 0 0 0-9-9z"/></svg>
 </button>
 
@@ -532,6 +570,35 @@
     </div>
 </div>
 
+<!-- 編集用モーダル -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">項目編集</div>
+        <div class="modal-body">
+            <input type="hidden" id="editId">
+            <div class="modal-row">
+                <span class="modal-label">項目名</span>
+                <input type="text" id="editName" class="modal-input">
+            </div>
+            <div class="modal-row">
+                <span class="modal-label">詳細テキスト</span>
+                <input type="text" id="editDesc" class="modal-input">
+            </div>
+            <div class="modal-row">
+                <span class="modal-label">当選確率</span>
+                <div class="modal-slider-row">
+                    <input type="range" id="editWeightSlider" min="1" max="100" class="modal-slider">
+                    <input type="number" id="editWeightNum" min="1" max="1000" class="modal-input modal-number">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-cancel" onclick="closeEditModal()">キャンセル</button>
+            <button class="modal-btn modal-btn-save" onclick="saveEditModal()">保存</button>
+        </div>
+    </div>
+</div>
+
 <script>
 // --- 設定定数 ---
 const TEXT_CONFIG = {
@@ -556,7 +623,9 @@ const TEXT_CONFIG = {
         startRemove: "抽選結果を除外する",
         clear: "初期状態に戻す",
         reset: "抽選開始前に戻す",
-        mute: "効果音のオン/オフ"
+        muteOn: "ミュート解除",
+        muteOff: "ミュートする",
+        darkMode: "ダークモード切替"
     },
     messages: {
         noItem: "抽選対象がありません。",
@@ -569,15 +638,15 @@ const TEXT_CONFIG = {
         shareError: "URLが長すぎるなどの理由でコピーできませんでした。"
     },
     sampleData: [
-        { text: "りんご", desc: "赤い果物。医者いらず。", jackpot: false },
-        { text: "★大当たり", desc: "おめでとう！", jackpot: true }
+        { text: "りんご", desc: "赤い果物。医者いらず。", jackpot: false, weight: 1 },
+        { text: "★大当たり", desc: "おめでとう！", jackpot: true, weight: 1 }
     ]
 };
 
 // --- サウンド管理オブジェクト ---
 const SoundManager = {
     ctx: null,
-    isMuted: true,
+    isMuted: false, // デフォルトで音ありに変更
     init() {
         if (!this.ctx) {
             try {
@@ -592,14 +661,20 @@ const SoundManager = {
     toggleMute() {
         this.isMuted = !this.isMuted;
         const btn = document.getElementById('muteBtn');
+        const tooltip = document.getElementById('global-tooltip');
+
         if (this.isMuted) {
             btn.classList.add('muted');
-            btn.setAttribute('title', 'ミュート解除');
+            btn.setAttribute('data-tooltip', TEXT_CONFIG.tooltips.muteOn);
         } else {
             btn.classList.remove('muted');
-            btn.setAttribute('title', 'ミュートする');
+            btn.setAttribute('data-tooltip', TEXT_CONFIG.tooltips.muteOff);
             this.init();
             this.playClick();
+        }
+        // 即座にツールチップを更新
+        if (tooltip && tooltip.style.opacity === '1') {
+            tooltip.textContent = btn.getAttribute('data-tooltip');
         }
     },
     playClick() {
@@ -738,7 +813,7 @@ let lastModeRemove = false;
 let isSpinning = false;
 let isFastMode = false;
 
-// --- 初期化処理 (エラーハンドリング付き) ---
+// --- 初期化処理 ---
 document.addEventListener('DOMContentLoaded', () => { 
     try {
         Confetti.init();
@@ -750,6 +825,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if(wrapper) {
             wrapper.addEventListener('click', () => startRoulette(lastModeRemove));
         }
+        
+        // モーダルのスライダー同期
+        const slider = document.getElementById('editWeightSlider');
+        const numInput = document.getElementById('editWeightNum');
+        slider.addEventListener('input', () => numInput.value = slider.value);
+        numInput.addEventListener('input', () => slider.value = numInput.value);
+
     } catch(err) {
         console.error("Initialization error:", err);
     }
@@ -840,7 +922,7 @@ function addItem(text = null) {
 
     if (!val) return;
     
-    items.push({ id: idCounter++, text: val, active: true, desc: desc, isJackpot: false });
+    items.push({ id: idCounter++, text: val, active: true, desc: desc, isJackpot: false, weight: 1 });
     
     if (!text && inputName) {
         inputName.value = '';
@@ -848,6 +930,39 @@ function addItem(text = null) {
         inputName.focus();
     }
     updateUI();
+}
+
+// --- 編集モーダル関連 ---
+function openEditModal(item) {
+    const modal = document.getElementById('editModal');
+    document.getElementById('editId').value = item.id;
+    document.getElementById('editName').value = item.text;
+    document.getElementById('editDesc').value = item.desc || '';
+    
+    // 確率(Weight)設定
+    const w = item.weight || 1;
+    document.getElementById('editWeightSlider').value = w;
+    document.getElementById('editWeightNum').value = w;
+    
+    modal.classList.add('show');
+}
+function closeEditModal() {
+    document.getElementById('editModal').classList.remove('show');
+}
+function saveEditModal() {
+    const id = parseInt(document.getElementById('editId').value);
+    const item = items.find(i => i.id === id);
+    if(item) {
+        item.text = document.getElementById('editName').value;
+        item.desc = document.getElementById('editDesc').value;
+        
+        let w = parseFloat(document.getElementById('editWeightNum').value);
+        if(isNaN(w) || w < 0) w = 1;
+        item.weight = w;
+        
+        updateUI();
+    }
+    closeEditModal();
 }
 
 function loadAndProcessFile(file) {
@@ -860,7 +975,7 @@ function loadAndProcessFile(file) {
             restoreFromCSV(content);
         } else {
             content.split(/\r?\n/).filter(line => line.trim()).forEach(line => {
-                items.push({ id: idCounter++, text: line, active: true, desc: '', isJackpot: false });
+                items.push({ id: idCounter++, text: line, active: true, desc: '', isJackpot: false, weight: 1 });
             });
             updateUI();
         }
@@ -885,20 +1000,21 @@ dropZone.addEventListener('drop', e => {
 
 function exportCSV() {
     const csvContent = [];
-    csvContent.push('Type,Text,Value1,Value2,Description');
+    csvContent.push('Type,Text,Value1,Value2,Description,Weight');
     const title = document.getElementById('titleInput').value.replace(/"/g, '""');
-    csvContent.push(`Title,"${title}",,,`);
+    csvContent.push(`Title,"${title}",,,,`);
     
     if (items.length === 0) {
         if (!confirm(TEXT_CONFIG.messages.emptySample)) return;
         TEXT_CONFIG.sampleData.forEach(d => {
-            csvContent.push(`Item,"${d.text}",1,${d.jackpot?1:0},"${d.desc}"`);
+            csvContent.push(`Item,"${d.text}",1,${d.jackpot?1:0},"${d.desc}",${d.weight}`);
         });
     } else {
         items.forEach(i => {
             const text = `"${i.text.replace(/"/g, '""')}"`;
             const desc = i.desc ? `"${i.desc.replace(/"/g, '""')}"` : '""';
-            csvContent.push(`Item,${text},${i.active ? 1 : 0},${i.isJackpot ? 1 : 0},${desc}`);
+            const weight = i.weight !== undefined ? i.weight : 1;
+            csvContent.push(`Item,${text},${i.active ? 1 : 0},${i.isJackpot ? 1 : 0},${desc},${weight}`);
         });
         
         const historyLis = document.querySelectorAll('#historyList li');
@@ -909,7 +1025,7 @@ function exportCSV() {
             const time = li.dataset.timestamp ? `"${li.dataset.timestamp}"` : '""';
             const rawDesc = li.getAttribute('data-tooltip') || '';
             const desc = `"${rawDesc.replace(/"/g, '""')}"`;
-            csvContent.push(`History,${text},${num},${time},${desc}`);
+            csvContent.push(`History,${text},${num},${time},${desc},`);
         });
     }
     const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent.join('\n')], { type: 'text/csv' });
@@ -929,7 +1045,13 @@ async function shareCurrentState() {
     const title = document.getElementById('titleInput').value;
     const saveData = {
         t: title,
-        i: items.map(item => ({ t: item.text, a: item.active ? 1 : 0, d: item.desc, j: item.isJackpot ? 1 : 0 }))
+        i: items.map(item => ({ 
+            t: item.text, 
+            a: item.active ? 1 : 0, 
+            d: item.desc, 
+            j: item.isJackpot ? 1 : 0,
+            w: item.weight || 1 
+        }))
     };
     try {
         const jsonStr = JSON.stringify(saveData);
@@ -966,7 +1088,8 @@ function restoreFromShareURL() {
                     text: item.t, 
                     active: item.a === 1, 
                     desc: item.d || '',
-                    isJackpot: item.j === 1 
+                    isJackpot: item.j === 1,
+                    weight: item.w !== undefined ? item.w : 1
                 });
             });
             document.getElementById('historyList').innerHTML = '';
@@ -1016,7 +1139,8 @@ function restoreFromCSV(csvText) {
             const isActive = parseInt(cols[2]) === 1;
             const isJackpot = parseInt(cols[3]) === 1;
             const desc = cols[4] !== undefined ? cols[4] : '';
-            items.push({ id: idCounter++, text: text, active: isActive, desc: desc, isJackpot: !!isJackpot });
+            const weight = cols[5] !== undefined ? parseFloat(cols[5]) : 1;
+            items.push({ id: idCounter++, text: text, active: isActive, desc: desc, isJackpot: !!isJackpot, weight: weight });
 
         } else if (type === 'History') {
             const num = cols[2];
@@ -1149,6 +1273,9 @@ function renderList() {
         li.addEventListener('dragleave', handleDragLeave, false);
         li.addEventListener('drop', handleDrop, false);
         li.addEventListener('dragend', handleDragEnd, false);
+        
+        // ダブルクリックで編集
+        li.ondblclick = () => openEditModal(item);
 
         if (currentSessionWinners.includes(item.id)) li.classList.add('final-highlight');
         else if (!item.active) li.classList.add('inactive');
@@ -1188,6 +1315,21 @@ function renderList() {
     });
 }
 
+// 確率に基づく抽選関数
+function weightedRandom(list) {
+    if(!list || list.length === 0) return null;
+    let totalWeight = 0;
+    list.forEach(i => totalWeight += (i.weight !== undefined ? i.weight : 1));
+    
+    let r = Math.random() * totalWeight;
+    for(let i=0; i<list.length; i++) {
+        const w = list[i].weight !== undefined ? list[i].weight : 1;
+        if(r < w) return list[i];
+        r -= w;
+    }
+    return list[list.length - 1];
+}
+
 function renderRoulette() {
     const svg = document.getElementById('roulette');
     const isDark = document.body.classList.contains('dark');
@@ -1219,7 +1361,6 @@ function renderRoulette() {
         const x2 = 200 + 190 * Math.cos(endA * d2r);
         const y2 = 200 + 190 * Math.sin(endA * d2r);
         
-        // 【変更】Jackpotでも塗りつぶし色は変えず、通常のグレー階調を使用
         const ratio = activeList.length > 1 ? i / (activeList.length - 1) : 0;
         const gray = Math.round(startColor - (startColor - endColor) * ratio);
         const color = `rgb(${gray},${gray},${gray})`;
@@ -1228,13 +1369,10 @@ function renderRoulette() {
         path.setAttribute('d', `M200,200 L${x1},${y1} A190,190 0 ${segmentAngle > 180 ? 1 : 0} 1 ${x2},${y2} Z`);
         path.setAttribute('fill', color);
         
-        // 【変更】Jackpot項目の場合、枠線を赤く太くし、発光させる
         if(item.isJackpot) {
             path.setAttribute('stroke', 'var(--danger-color)');
             path.setAttribute('stroke-width', '4');
             path.setAttribute('filter', 'drop-shadow(0 0 6px var(--danger-color))');
-            // Z-index的な制御がないため、隣接する細い枠線の上に描画されるとは限らないが、
-            // drop-shadowにより発光感は十分に得られる
         } else {
             path.setAttribute('stroke', isDark ? '#333' : '#fff');
             path.setAttribute('stroke-width', '1');
@@ -1249,10 +1387,6 @@ function renderRoulette() {
             const ty = 200 + textRadius * Math.sin(midAngle * d2r);
             const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             text.setAttribute('x', tx); text.setAttribute('y', ty);
-            // Jackpot時の文字色は白(背景グレー上なので)またはテーマ色に合わせる
-            // 背景がグレーなので、Jackpotでも通常の文字色の方が見やすい場合があるが、
-            // 既存の「Jackpotは特別」感を出すなら赤文字もあり。
-            // ここでは視認性重視で、Jackpot時は赤色文字にする。
             text.setAttribute('fill', item.isJackpot ? 'var(--danger-color)' : textColor);
             text.setAttribute('font-size', activeList.length > 20 ? '10' : '14'); 
             text.setAttribute('font-weight', 'bold');
@@ -1303,8 +1437,10 @@ async function startRoulette(removeAfter) {
         for (let i = 0; i < count; i++) {
             const activeList = items.filter(item => item.active);
             if (activeList.length === 0) break;
-            const randomIndex = Math.floor(Math.random() * activeList.length);
-            const winner = activeList[randomIndex];
+            
+            // 確率に基づき決定
+            const winner = weightedRandom(activeList);
+            
             currentSessionWinners.push(winner.id);
             results.push(winner);
             if (removeAfter) {
@@ -1378,11 +1514,16 @@ async function startRoulette(removeAfter) {
 
 function spinOnce(activeList, removeAfter) {
     return new Promise(resolve => {
-        const randomIndex = Math.floor(Math.random() * activeList.length);
-        const winner = activeList[randomIndex];
+        // 確率(Weight)に基づき当選者を決定する
+        const winner = weightedRandom(activeList);
+        
+        // 当選者のインデックスを取得
+        const winnerIndex = activeList.indexOf(winner);
+        
         const segmentAngle = 360 / activeList.length;
         
-        const winnerCenterAngle = (segmentAngle * randomIndex) + (segmentAngle / 2);
+        // 当選セグメントの中心角度
+        const winnerCenterAngle = (segmentAngle * winnerIndex) + (segmentAngle / 2);
         
         const baseRotations = 360 * 5; 
         let distToTarget = (-winnerCenterAngle - (angle % 360)) % 360;
