@@ -102,7 +102,7 @@
         z-index: 20;
     }
 
-    /* コンフェッティ用キャンバス */
+    /* コンフェッティ用キャンバス: クリックを確実に通す設定 */
     #confetti-canvas {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         pointer-events: none !important;
@@ -113,7 +113,7 @@
        3. サイドバー: リスト & 履歴 (Sidebar)
        ========================================================================== */
     #itemList, #history {
-        width: 380px; /* 340px -> 380px に拡張 */
+        width: 380px;
         background: var(--card-bg);
         border: 1px solid var(--border-color);
         border-radius: 12px;
@@ -322,6 +322,8 @@
         display: inline-flex; align-items: center; justify-content: center;
         cursor: pointer; position: relative; transition: all 0.2s; z-index: 10;
         touch-action: manipulation; opacity: 0.8;
+        /* ボタン類は明示的にクリックを受け付ける */
+        pointer-events: auto;
     }
     button:hover, .custom-file-btn:hover { opacity: 1; transform: translateY(-1px); }
     button:active, .custom-file-btn:active { transform: translateY(1px); opacity: 1; }
@@ -402,7 +404,11 @@
     #global-tooltip {
         position: fixed; background: var(--tooltip-bg); color: var(--tooltip-text);
         padding: 8px 12px; font-size: 12px; border-radius: 6px;
-        pointer-events: none; z-index: 10000; opacity: 0;
+        /* クリックを透過させる重要設定 */
+        pointer-events: none !important; 
+        /* モーダル(20000)より手前に表示 */
+        z-index: 30000; 
+        opacity: 0;
         transition: opacity 0.15s ease;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         backdrop-filter: blur(4px); white-space: nowrap; font-weight: 500; max-width: 90vw; 
@@ -431,6 +437,7 @@
         transition: opacity 0.3s; padding: 10px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1); color: var(--text-color);
         box-sizing: border-box;
+        pointer-events: auto; /* ボタンはクリック可能に */
     }
     .fixed-btn:hover { transform: scale(1.05); }
     .fixed-btn svg { fill: currentColor; width: 100%; height: 100%; }
@@ -699,7 +706,10 @@ const TEXT_CONFIG = {
     },
     sampleData: [
         { text: "りんご", desc: "赤い果物。医者いらず。", jackpot: false, weight: 1 },
-        { text: "★大当たり", desc: "おめでとう！", jackpot: true, weight: 1 }
+        { text: "ばなな", desc: "ゴリラの大好物？", jackpot: false, weight: 1 },
+        { text: "キュウリ", desc: "栄養素が少ない、虚無の食べ物。でも美味い。", jackpot: false, weight: 1 },
+        { text: "レモン", desc: "", jackpot: false, weight: 1 },
+        { text: "フォアグラ", desc: "珍味", jackpot: true, weight: 1 }
     ]
 };
 
@@ -912,8 +922,6 @@ document.getElementById('itemDescInput').addEventListener('keydown', e => { if (
 function applyUIStrings() {
     document.title = TEXT_CONFIG.titles.pageTitle;
     document.getElementById('txtListHeader').textContent = TEXT_CONFIG.titles.listHeader;
-    // 履歴ヘッダーはHTML内でアイコンを含んでいるため、テキスト部分のみ更新したいが、
-    // ここでは初期HTMLで設定されているので上書きしないようにする
     
     const titleInput = document.getElementById('titleInput');
     if(titleInput.value === "ルーレット" || titleInput.value === "") titleInput.value = TEXT_CONFIG.titles.defaultInputTitle;
@@ -925,6 +933,7 @@ function initTooltip() {
     if (existing) existing.remove();
     const tooltip = document.createElement('div');
     tooltip.id = 'global-tooltip';
+    tooltip.style.pointerEvents = 'none';
     document.body.appendChild(tooltip);
     document.addEventListener('mouseover', (e) => {
         const target = e.target.closest('[data-tooltip]');
@@ -1512,6 +1521,11 @@ function renderRoulette() {
     const segmentAngle = 360 / activeList.length;
     const textColor = isDark ? '#fff' : '#333';
 
+    // 描画順序制御用の配列
+    const standardPaths = [];
+    const jackpotPaths = [];
+    const textElements = [];
+
     activeList.forEach((item, i) => {
         const startA = segmentAngle * i;
         const endA = startA + segmentAngle; 
@@ -1533,13 +1547,13 @@ function renderRoulette() {
             path.setAttribute('stroke', 'var(--danger-color)');
             path.setAttribute('stroke-width', '4');
             path.setAttribute('filter', 'drop-shadow(0 0 6px var(--danger-color))');
+            jackpotPaths.push(path); // ジャックポットは後で描画
         } else {
             path.setAttribute('stroke', isDark ? '#333' : '#fff');
             path.setAttribute('stroke-width', '1');
+            standardPaths.push(path); // 通常は先に描画
         }
         
-        svg.appendChild(path);
-
         if (!isFastMode) {
             const midAngle = startA + segmentAngle / 2;
             const textRadius = 160; 
@@ -1558,9 +1572,14 @@ function renderRoulette() {
             text.setAttribute('transform', `rotate(${midAngle}, ${tx}, ${ty})`);
             const originalIndex = items.findIndex(it => it.id === item.id) + 1;
             text.textContent = originalIndex;
-            svg.appendChild(text);
+            textElements.push(text);
         }
     });
+    
+    // 描画順序: 通常パス -> ジャックポットパス -> テキスト
+    standardPaths.forEach(p => svg.appendChild(p));
+    jackpotPaths.forEach(p => svg.appendChild(p));
+    textElements.forEach(t => svg.appendChild(t));
     
     const borderCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     borderCircle.setAttribute('cx', '200'); borderCircle.setAttribute('cy', '200');
