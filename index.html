@@ -151,6 +151,15 @@
         flex-shrink: 0; font-size: 1.1rem; font-weight: 600; letter-spacing: 0.05em;
     }
 
+    /* 履歴ヘッダーのクリックアクション用 */
+    #history h2.clickable-title {
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        transition: opacity 0.2s;
+    }
+    #history h2.clickable-title:hover { opacity: 0.6; }
+    #history h2.clickable-title svg { width: 18px; height: 18px; fill: currentColor; opacity: 0.8; }
+
     /* リストアイテム */
     #itemList li, #historyList li {
         padding: 10px 4px; border-bottom: 1px solid var(--border-color);
@@ -434,7 +443,7 @@
     #muteBtn.muted .mute-x { display: block; }
 
     /* ==========================================================================
-       7. 編集モーダル (Edit Modal)
+       7. モーダル共通 (Modal)
        ========================================================================== */
     .modal {
         display: none; 
@@ -449,8 +458,9 @@
         padding: 24px; width: 90%; max-width: 400px;
         box-shadow: 0 8px 24px rgba(0,0,0,0.3);
         display: flex; flex-direction: column; gap: 16px;
+        max-height: 85vh; overflow-y: auto;
     }
-    .modal-header { font-size: 18px; font-weight: bold; margin-bottom: 4px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+    .modal-header { font-size: 18px; font-weight: bold; margin-bottom: 4px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
     .modal-body { display: flex; flex-direction: column; gap: 12px; }
     .modal-row { display: flex; flex-direction: column; gap: 6px; }
     .modal-label { font-size: 14px; opacity: 0.8; }
@@ -468,6 +478,33 @@
     .modal-btn { padding: 8px 16px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
     .modal-btn-cancel { background: transparent; color: var(--text-color); border: 1px solid var(--border-color); }
     .modal-btn-save { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+
+    /* 統計用スタイル */
+    .stats-list {
+        display: flex; flex-direction: column; gap: 8px;
+    }
+    .stat-row {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        font-size: 14px;
+    }
+    .stat-label {
+        flex: 0 0 100px; text-align: left;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        font-weight: 500;
+    }
+    .stat-bar-container {
+        flex: 1; height: 12px; background: var(--input-bg);
+        border-radius: 6px; overflow: hidden;
+    }
+    .stat-bar {
+        height: 100%; background-color: var(--lightning-color);
+        width: 0%; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        min-width: 4px; border-radius: 6px;
+    }
+    .stat-val {
+        flex: 0 0 30px; text-align: right; font-variant-numeric: tabular-nums;
+        font-size: 13px; opacity: 0.8;
+    }
 
     @media (max-width: 900px) {
         .container { flex-direction: column; align-items: center; gap: 30px; }
@@ -565,7 +602,10 @@
 
     <!-- 右サイドバー -->
     <div id="history">
-        <h2 id="txtHistoryHeader">抽選結果</h2>
+        <h2 id="txtHistoryHeader" class="clickable-title" data-tooltip="クリックして統計を表示">
+            抽選結果
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+        </h2>
         <ul id="historyList"></ul>
     </div>
 </div>
@@ -595,6 +635,21 @@
         <div class="modal-footer">
             <button class="modal-btn modal-btn-cancel" onclick="closeEditModal()">キャンセル</button>
             <button class="modal-btn modal-btn-save" onclick="saveEditModal()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 統計用モーダル -->
+<div id="statsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span>抽選結果 統計</span>
+            <button class="icon-btn" onclick="closeStatsModal()" style="font-size: 20px;">×</button>
+        </div>
+        <div class="modal-body">
+            <div id="statsBody" class="stats-list">
+                <!-- JSで生成 -->
+            </div>
         </div>
     </div>
 </div>
@@ -832,6 +887,9 @@ document.addEventListener('DOMContentLoaded', () => {
         slider.addEventListener('input', () => numInput.value = slider.value);
         numInput.addEventListener('input', () => slider.value = numInput.value);
 
+        // 履歴ヘッダーにクリックイベント追加
+        document.getElementById('txtHistoryHeader').addEventListener('click', calculateAndShowStats);
+
     } catch(err) {
         console.error("Initialization error:", err);
     }
@@ -849,7 +907,9 @@ document.getElementById('itemDescInput').addEventListener('keydown', e => { if (
 function applyUIStrings() {
     document.title = TEXT_CONFIG.titles.pageTitle;
     document.getElementById('txtListHeader').textContent = TEXT_CONFIG.titles.listHeader;
-    document.getElementById('txtHistoryHeader').textContent = TEXT_CONFIG.titles.historyHeader;
+    // 履歴ヘッダーはHTML内でアイコンを含んでいるため、テキスト部分のみ更新したいが、
+    // ここでは初期HTMLで設定されているので上書きしないようにする
+    
     const titleInput = document.getElementById('titleInput');
     if(titleInput.value === "ルーレット" || titleInput.value === "") titleInput.value = TEXT_CONFIG.titles.defaultInputTitle;
     titleInput.placeholder = TEXT_CONFIG.titles.titlePlaceholder;
@@ -964,6 +1024,74 @@ function saveEditModal() {
     }
     closeEditModal();
 }
+
+// --- 統計モーダル関連 ---
+function calculateAndShowStats() {
+    const historyLis = document.querySelectorAll('#historyList li');
+    if (historyLis.length === 0) {
+        showToast("履歴データがありません");
+        return;
+    }
+
+    const counts = {};
+    let total = 0;
+
+    historyLis.forEach(li => {
+        // "項目名（番号: 1） (12:00:00)" の形式から項目名を抽出
+        const textRaw = li.textContent.split('（番号:')[0] || li.textContent;
+        const name = textRaw.trim();
+        if (name) {
+            counts[name] = (counts[name] || 0) + 1;
+            total++;
+        }
+    });
+
+    const sortedStats = Object.keys(counts).map(key => {
+        return { name: key, count: counts[key] };
+    }).sort((a, b) => b.count - a.count);
+
+    const statsBody = document.getElementById('statsBody');
+    statsBody.innerHTML = '';
+
+    if (sortedStats.length === 0) {
+        statsBody.innerHTML = '<div style="text-align:center; opacity:0.6;">データなし</div>';
+    } else {
+        const maxVal = sortedStats[0].count;
+        sortedStats.forEach(stat => {
+            const percent = (stat.count / maxVal) * 100;
+            const row = document.createElement('div');
+            row.className = 'stat-row';
+            row.innerHTML = `
+                <div class="stat-label" title="${stat.name}">${stat.name}</div>
+                <div class="stat-bar-container">
+                    <div class="stat-bar" style="width: 0%"></div>
+                </div>
+                <div class="stat-val">${stat.count}</div>
+            `;
+            statsBody.appendChild(row);
+            
+            // アニメーション用
+            setTimeout(() => {
+                const bar = row.querySelector('.stat-bar');
+                if(bar) bar.style.width = percent + '%';
+            }, 50);
+        });
+    }
+
+    document.getElementById('statsModal').classList.add('show');
+}
+
+function closeStatsModal() {
+    document.getElementById('statsModal').classList.remove('show');
+}
+
+// モーダル外クリックで閉じる処理の追加
+window.addEventListener('click', (e) => {
+    const editModal = document.getElementById('editModal');
+    const statsModal = document.getElementById('statsModal');
+    if (e.target === editModal) closeEditModal();
+    if (e.target === statsModal) closeStatsModal();
+});
 
 function loadAndProcessFile(file) {
     if (!file) return;
