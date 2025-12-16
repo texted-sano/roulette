@@ -113,7 +113,7 @@
        3. サイドバー: リスト & 履歴 (Sidebar)
        ========================================================================== */
     #itemList, #history {
-        width: 340px;
+        width: 380px; /* 340px -> 380px に拡張 */
         background: var(--card-bg);
         border: 1px solid var(--border-color);
         border-radius: 12px;
@@ -180,7 +180,8 @@
 
     .item-text {
         flex: 1; text-align: left; 
-        white-space: normal; word-break: break-word; overflow: visible; 
+        white-space: normal; word-break: break-all; /* 折り返しを強制 */
+        overflow: visible; 
         pointer-events: auto; line-height: 1.4; padding: 2px 0;
         user-select: none;
     }
@@ -488,9 +489,13 @@
         font-size: 14px;
     }
     .stat-label {
-        flex: 0 0 100px; text-align: left;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        flex: 0 0 140px; /* 100px -> 140px に拡張 */
+        text-align: left;
+        white-space: normal; /* 折り返しを許可 */
+        overflow: visible;
+        word-break: break-all; /* 長い単語も折り返す */
         font-weight: 500;
+        line-height: 1.2;
     }
     .stat-bar-container {
         flex: 1; height: 12px; background: var(--input-bg);
@@ -643,7 +648,7 @@
 <div id="statsModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <span>抽選結果 統計</span>
+            <span>統計データ</span>
             <button class="icon-btn" onclick="closeStatsModal()" style="font-size: 20px;">×</button>
         </div>
         <div class="modal-body">
@@ -701,7 +706,7 @@ const TEXT_CONFIG = {
 // --- サウンド管理オブジェクト ---
 const SoundManager = {
     ctx: null,
-    isMuted: false, // デフォルトで音ありに変更
+    isMuted: false, // デフォルトで音あり
     init() {
         if (!this.ctx) {
             try {
@@ -1034,8 +1039,10 @@ function calculateAndShowStats() {
     }
 
     const counts = {};
+    const descs = {}; // 項目名に対する詳細テキストを保存
     let total = 0;
 
+    // 履歴とアイテムリストから情報を収集
     historyLis.forEach(li => {
         // "項目名（番号: 1） (12:00:00)" の形式から項目名を抽出
         const textRaw = li.textContent.split('（番号:')[0] || li.textContent;
@@ -1043,11 +1050,24 @@ function calculateAndShowStats() {
         if (name) {
             counts[name] = (counts[name] || 0) + 1;
             total++;
+            
+            // 詳細テキストの取得（履歴のdata-tooltip、または既存itemsから検索）
+            if (!descs[name]) {
+                const historyDesc = li.getAttribute('data-tooltip');
+                if (historyDesc) {
+                    descs[name] = historyDesc;
+                } else {
+                    const foundItem = items.find(i => i.text === name);
+                    if (foundItem && foundItem.desc) {
+                        descs[name] = foundItem.desc;
+                    }
+                }
+            }
         }
     });
 
     const sortedStats = Object.keys(counts).map(key => {
-        return { name: key, count: counts[key] };
+        return { name: key, count: counts[key], desc: descs[key] || '' };
     }).sort((a, b) => b.count - a.count);
 
     const statsBody = document.getElementById('statsBody');
@@ -1061,13 +1081,25 @@ function calculateAndShowStats() {
             const percent = (stat.count / maxVal) * 100;
             const row = document.createElement('div');
             row.className = 'stat-row';
+            
+            // ラベル部分
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'stat-label';
+            labelDiv.textContent = stat.name;
+            if (stat.desc) {
+                labelDiv.setAttribute('data-tooltip', stat.desc);
+            }
+            
             row.innerHTML = `
-                <div class="stat-label" title="${stat.name}">${stat.name}</div>
                 <div class="stat-bar-container">
                     <div class="stat-bar" style="width: 0%"></div>
                 </div>
                 <div class="stat-val">${stat.count}</div>
             `;
+            
+            // labelDivを先頭に挿入
+            row.insertBefore(labelDiv, row.firstChild);
+            
             statsBody.appendChild(row);
             
             // アニメーション用
