@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<!-- スマホ対応: ビューポート設定 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>stylish roulette + jackpot</title>
+<style>
+    /* ==========================================================================
+       1. デザイン変数 (Color Theme)
+       ========================================================================== */
+    :root {
+        /* ライトモード定義 */
+        --bg-color: #f2f2f7;           /* 背景 */
+        --card-bg: #ffffff;            /* カード */
+        --text-color: #1c1c1e;         /* 文字 */
+        
+        --input-bg: #e5e5ea;
+        --input-border: #d1d1d6;
+
+        --btn-primary-bg: #1c1c1e;
+        --btn-primary-text: #ffffff;
+
+        --border-color: #d1d1d6;
+        --highlight-color: #e5e5ea;
+        --accent-color: #8e8e93;
+        
+        --final-bg: #3a3a3c;
+        --final-text: #f2f2f7;
+        --danger-color: #ff3b30;       /* 赤（当たり・警告） */
+        --jackpot-glow: rgba(255, 59, 48, 0.6); /* 当たりの発光色 */
+        --shadow-color: rgba(0, 0, 0, 0.1);
+        
+        --lightning-color: #007aff;    /* 高速モード（青） */
+        --tooltip-bg: rgba(40, 40, 40, 0.95);
+        --tooltip-text: #ffffff;
+    }
+
+    body.dark {
+        /* ダークモード定義 */
+        --bg-color: #1c1c1e;
+        --card-bg: #2c2c2e;
+        --text-color: #f2f2f7;
+        
+        --input-bg: #151515;
+        --input-border: #3a3a3c;
+
+        --btn-primary-bg: #e5e5ea;
+        --btn-primary-text: #1c1c1e;
+
+        --border-color: #48484a;
+        --highlight-color: #3a3a3c;
+        --accent-color: #d1d1d6;
+        
+        --final-bg: #d1d1d6;
+        --final-text: #1c1c1e;
+        --danger-color: #ff453a;       /* ダークモード用赤 */
+        --jackpot-glow: rgba(255, 69, 58, 0.6);
+        --shadow-color: rgba(0, 0, 0, 0.5);
+
+        --lightning-color: #4da3ff;
+        --tooltip-bg: rgba(240, 240, 240, 0.95);
+        --tooltip-text: #1c1c1e;
+    }
+
+    /* ==========================================================================
+       2. 基本レイアウト (Layout)
+       ========================================================================== */
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif;
+        background: var(--bg-color);
+        color: var(--text-color);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+        margin: 0;
+        transition: background 0.3s, color 0.3s;
+        min-height: 100vh;
+        box-sizing: border-box;
+        overflow-x: hidden;
+    }
+    .container {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        width: 100%;
+        max-width: 1300px;
+        gap: 20px;
+        position: relative;
+        z-index: 10;
+    }
+    .main {
+        text-align: center;
+        position: relative;
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 0;
+        width: 100%;
+        z-index: 20;
+    }
+
+    /* コンフェッティ用キャンバス */
+    #confetti-canvas {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        pointer-events: none !important;
+        z-index: 9999;
+    }
+
+    /* ==========================================================================
+       3. サイドバー: リスト & 履歴 (Sidebar)
+       ========================================================================== */
+    #itemList, #history {
+        width: 340px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 15px;
+        font-size: 15px;
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - 40px);
+        transition: background 0.3s, border-color 0.3s;
+        box-shadow: 0 4px 12px var(--shadow-color);
+        box-sizing: border-box;
+        flex-shrink: 0;
+        z-index: 30;
+    }
+    #list, #historyList {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        width: 100%;
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        min-height: 150px;
+    }
+    #itemList::-webkit-scrollbar, #history::-webkit-scrollbar,
+    #list::-webkit-scrollbar, #historyList::-webkit-scrollbar { width: 6px; }
+    #itemList::-webkit-scrollbar-thumb, #history::-webkit-scrollbar-thumb,
+    #list::-webkit-scrollbar-thumb, #historyList::-webkit-scrollbar-thumb {
+        background: var(--border-color); border-radius: 4px;
+    }
+    
+    #itemList h2, #history h2 {
+        text-align: center; margin: 0 0 10px 0; padding-bottom: 10px;
+        border-bottom: 2px solid var(--border-color);
+        flex-shrink: 0; font-size: 1.1rem; font-weight: 600; letter-spacing: 0.05em;
+    }
+
+    /* リストアイテム */
+    #itemList li, #historyList li {
+        padding: 10px 4px; border-bottom: 1px solid var(--border-color);
+        display: flex; align-items: center; gap: 8px; position: relative;
+        list-style: none; flex-shrink: 0; transition: background 0.1s, box-shadow 0.3s;
+    }
+    #itemList li:last-child { border-bottom: none; }
+    
+    #itemList li { justify-content: space-between; cursor: grab; }
+    #itemList li:active { cursor: grabbing; }
+    #itemList li.dragging { opacity: 0.5; background: var(--highlight-color); }
+    #itemList li.over { border-top: 2px solid var(--accent-color); }
+    
+    #historyList li {
+        justify-content: flex-start; cursor: default;
+        white-space: normal; word-break: break-word; line-height: 1.4; font-size: 0.95em;
+    }
+
+    .item-text {
+        flex: 1; text-align: left; 
+        white-space: normal; word-break: break-word; overflow: visible; 
+        pointer-events: auto; line-height: 1.4; padding: 2px 0;
+    }
+
+    /* ハイライト設定 */
+    .highlight { background-color: var(--highlight-color); border-radius: 4px; font-weight: 600; }
+    
+    /* 当選確定時のハイライト */
+    .final-highlight { 
+        background-color: var(--final-bg); color: var(--final-text); 
+        font-weight: bold; border-radius: 4px; padding-left: 8px;
+    }
+    .final-highlight .icon-btn { color: var(--final-text); opacity: 0.8; }
+    .final-highlight .item-text { text-decoration: none !important; color: var(--final-text) !important; }
+    
+    /* 無効状態 */
+    .inactive .item-text { color: var(--border-color); text-decoration: line-through; }
+
+    /* --- 当たり（Jackpot）設定のスタイル --- */
+    .jackpot-item {
+    }
+    .jackpot-item .item-text {
+        color: var(--danger-color);
+        font-weight: bold;
+    }
+    
+    /* ★ボタン */
+    .star-btn {
+        color: var(--border-color); 
+        transition: color 0.3s, transform 0.2s;
+        font-size: 1.2em;
+    }
+    .star-btn.is-active {
+        color: var(--danger-color); 
+        transform: scale(1.2);
+        filter: drop-shadow(0 0 2px var(--jackpot-glow));
+    }
+
+    /* ==========================================================================
+       4. ルーレット & タイトルエリア
+       ========================================================================== */
+    .title-wrapper {
+        position: relative; margin: 0 auto 20px auto; width: 100%; max-width: 400px;
+    }
+    #titleInput {
+        font-size: clamp(24px, 5vw, 28px); font-weight: 700; text-align: center;
+        border: none; border-bottom: 2px solid transparent;
+        background: transparent; color: var(--text-color);
+        outline: none; width: 100%; padding: 8px 0;
+        transition: all 0.3s ease; letter-spacing: 0.05em;
+        font-family: inherit; box-sizing: border-box;
+    }
+    #titleInput:hover, #titleInput:focus { border-bottom-color: var(--accent-color); }
+    #titleInput::placeholder { color: var(--border-color); font-weight: normal; }
+
+    #selectedItem {
+        font-size: clamp(18px, 4vw, 22px); font-weight: bold;
+        margin: 0 0 20px 0; min-height: 60px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        width: 100%;
+    }
+    .winner-desc {
+        font-size: 14px; opacity: 0.8; margin-top: 6px; font-weight: normal; 
+        white-space: pre-wrap; word-break: break-word; 
+        max-width: 480px; width: 95%; padding: 0 10px; box-sizing: border-box;
+    }
+
+    /* ルーレット本体 */
+    .roulette-wrapper {
+        position: relative; width: 100%; max-width: 360px; aspect-ratio: 1 / 1;
+        height: auto; margin: 0 auto;
+        border-radius: 50%; box-shadow: 0 12px 30px var(--shadow-color);
+        flex-shrink: 0; cursor: pointer; transition: transform 0.1s, box-shadow 0.3s;
+        z-index: 25;
+    }
+    .roulette-wrapper:active { transform: scale(0.98); }
+    .roulette-wrapper::after {
+        content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 12%; height: 12%;
+        background: var(--card-bg); border: 4px solid var(--text-color);
+        border-radius: 50%; z-index: 10; pointer-events: none;
+    }
+    
+    /* 当たり当選時の発光エフェクト */
+    .roulette-wrapper.jackpot-win {
+        animation: jackpot-pulse 0.5s infinite alternate;
+    }
+    @keyframes jackpot-pulse {
+        0% { box-shadow: 0 0 20px var(--danger-color); }
+        100% { box-shadow: 0 0 60px var(--danger-color), 0 0 100px var(--jackpot-glow); }
+    }
+
+    #roulette {
+        width: 100%; height: 100%;
+        transform: rotate(0deg); filter: drop-shadow(0 0 2px rgba(0,0,0,0.1));
+    }
+    /* 針 */
+    .pointer {
+        position: absolute; top: 50%; left: 100%; transform: translate(-60%, -50%) rotate(270deg);
+        width: 0; height: 0; 
+        border-left: 20px solid transparent; border-right: 20px solid transparent;
+        border-bottom: 28px solid var(--text-color); 
+        z-index: 20; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+
+    /* ==========================================================================
+       5. コントロールエリア (Input & Buttons)
+       ========================================================================== */
+    .controls {
+        display: flex; flex-direction: column; align-items: center; gap: 16px;
+        margin-top: 30px; width: 100%; max-width: 500px;
+        position: relative; 
+        z-index: 100;
+    }
+    .input-group, .action-group, .file-group, .setting-group {
+        display: flex; justify-content: center; gap: 10px; width: 100%;
+        flex-wrap: wrap;
+    }
+    .file-area { display: flex; flex-direction: column; align-items: center; width: 100%; gap: 6px; }
+    .setting-group { align-items: center; justify-content: center; gap: 12px; }
+    
+    button, .custom-file-btn, .input-group input[type="text"], .spin-count-wrapper, .file-input-wrapper {
+        height: 48px; border-radius: 8px; box-sizing: border-box;
+    }
+
+    .input-group input[type="text"] {
+        flex: 1; padding: 0 12px; font-size: 16px;
+        background: var(--input-bg); 
+        color: var(--text-color);
+        border: 1px solid var(--input-border);
+        min-width: 110px; 
+        outline: none; transition: border-color 0.2s;
+    }
+    .input-group input[type="text"]:focus { border-color: var(--accent-color); }
+
+    button, .custom-file-btn {
+        font-size: 15px; font-weight: 600;
+        display: inline-flex; align-items: center; justify-content: center;
+        cursor: pointer; position: relative; transition: all 0.2s; z-index: 10;
+        touch-action: manipulation; opacity: 0.8;
+    }
+    button:hover, .custom-file-btn:hover { opacity: 1; transform: translateY(-1px); }
+    button:active, .custom-file-btn:active { transform: translateY(1px); opacity: 1; }
+
+    button.primary-btn, #btnAdd, .custom-file-btn, #btnExport, #btnShare {
+        background: var(--btn-primary-bg); color: var(--btn-primary-text);
+        border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    }
+
+    .file-input-wrapper {
+        flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
+        cursor: pointer; min-width: 120px; overflow: hidden;
+        border: none; padding: 0; background: transparent; z-index: 20;
+    }
+    #fileInput { 
+        display: block !important; position: absolute; top: 0; left: 0; 
+        width: 100% !important; height: 100% !important; opacity: 0 !important; 
+        z-index: 100; cursor: pointer;
+    }
+    .custom-file-btn { 
+        width: 100%; height: 100%; pointer-events: none !important; z-index: 1;
+    }
+
+    #btnAdd, #btnExport, #btnShare { width: 80px; flex: 0 0 80px; }
+    #btnExport svg, #btnShare svg { width: 22px; height: 22px; fill: currentColor; }
+    .action-group button { flex: 1; min-width: 140px; }
+
+    button.clear-btn {
+        background: transparent; border: 1px solid var(--danger-color);
+        color: var(--danger-color); box-shadow: none;
+    }
+    button.clear-btn:hover {
+        background: var(--danger-color); color: #ffffff;
+        box-shadow: 0 2px 8px rgba(255, 59, 48, 0.3);
+    }
+
+    #fastModeBtn {
+        width: 48px; height: 48px;
+        background: transparent; border: 1px solid transparent;
+        color: var(--text-color); transition: all 0.3s;
+    }
+    .fast-mode-on {
+        color: var(--lightning-color) !important; opacity: 1 !important;
+        filter: drop-shadow(0 0 6px var(--lightning-color));
+        transform: scale(1.1);
+    }
+    button.icon-only svg { width: 24px; height: 24px; fill: currentColor; }
+
+    .spin-count-wrapper {
+        display: flex; align-items: center; gap: 8px;
+        background: var(--card-bg); padding: 0 12px;
+        border: 1px solid var(--border-color);
+    }
+    .spin-label { font-size: 14px; color: var(--text-color); font-weight: 500; }
+    #spinCountInput {
+        width: 40px; height: 30px; text-align: center;
+        background: transparent; color: var(--text-color);
+        border: none; font-size: 16px; font-weight: bold;
+        -moz-appearance: textfield; outline: none;
+    }
+    #spinCountInput::-webkit-outer-spin-button,
+    #spinCountInput::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    #fileNameDisplay {
+        font-size: 12px; color: var(--text-color); opacity: 0.6;
+        height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+    }
+    .icon-btn {
+        background: none; border: none; padding: 8px; height: auto;
+        font-size: 18px; color: var(--text-color); opacity: 0.6; cursor: pointer;
+    }
+    .icon-btn.trash-btn:hover { color: var(--danger-color); }
+    .icon-btn:hover { opacity: 1; transform: scale(1.1); background: none; }
+
+    /* ==========================================================================
+       6. ツールチップ & トースト通知
+       ========================================================================== */
+    #global-tooltip {
+        position: fixed; background: var(--tooltip-bg); color: var(--tooltip-text);
+        padding: 8px 12px; font-size: 12px; border-radius: 6px;
+        pointer-events: none; z-index: 10000; opacity: 0;
+        transition: opacity 0.15s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        backdrop-filter: blur(4px); white-space: nowrap; font-weight: 500; max-width: 90vw; 
+    }
+
+    .toast-notification {
+        position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+        background: var(--tooltip-bg); color: var(--tooltip-text);
+        padding: 10px 24px; border-radius: 30px;
+        font-size: 14px; font-weight: 600;
+        opacity: 0; pointer-events: none; z-index: 20000;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+        white-space: nowrap;
+    }
+    .toast-notification.show {
+        opacity: 1; transform: translateX(-50%) translateY(0);
+    }
+
+    /* --- 右上固定ボタン群 --- */
+    .fixed-btn {
+        position: fixed; top: 15px;
+        background: var(--card-bg); border: 1px solid var(--border-color);
+        border-radius: 50%; cursor: pointer;
+        width: 44px; height: 44px; z-index: 9999;
+        transition: opacity 0.3s; padding: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1); color: var(--text-color);
+        box-sizing: border-box;
+    }
+    .fixed-btn:hover { transform: scale(1.05); }
+    .fixed-btn svg { fill: currentColor; width: 100%; height: 100%; }
+
+    #darkModeBtn { right: 15px; }
+    #muteBtn { right: 70px; } 
+    
+    #muteBtn.muted svg path.sound-wave { display: none; }
+    #muteBtn.muted svg path.mute-x { display: block; }
+    #muteBtn:not(.muted) svg path.mute-x { display: none; }
+    #muteBtn.muted .mute-x { display: block; }
+
+    @media (max-width: 900px) {
+        .container { flex-direction: column; align-items: center; gap: 30px; }
+        .main { order: 1; margin: 0; }
+        #itemList { order: 2; width: 100%; max-width: 600px; max-height: 300px; }
+        #history { order: 3; width: 100%; max-width: 600px; max-height: 250px; }
+        .title-wrapper { margin-bottom: 10px; }
+        .pointer { transform: translate(-50%, -50%) rotate(270deg); left: 102%; }
+    }
+</style>
+</head>
+<body class="dark">
+<canvas id="confetti-canvas"></canvas>
+
+<button id="muteBtn" class="fixed-btn muted" title="ミュート解除" data-tooltip="効果音のオン/オフ">
+    <svg viewBox="0 0 24 24">
+        <path d="M3 9v6h4l5 5V4L7 9H3z"/>
+        <path class="sound-wave" d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+        <g class="mute-x" style="display:none">
+             <path d="M16 16l4-4m0 0l-4-4m4 4l-4 4m4-4l-4-4" stroke="currentColor" stroke-width="2" />
+        </g>
+    </svg>
+</button>
+
+<button id="darkModeBtn" class="fixed-btn" title="ダークモード切替">
+    <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18c4.97 0 9-4.03 9-9a9 9 0 0 0-9-9z"/></svg>
+</button>
+
+<div class="container">
+    <!-- 左サイドバー -->
+    <div id="itemList">
+        <h2 id="txtListHeader">抽選リスト</h2>
+        <ul id="list"></ul>
+    </div>
+
+    <!-- メインエリア -->
+    <div class="main">
+        <div class="title-wrapper">
+            <input id="titleInput" type="text" value="ルーレット" placeholder="タイトルを入力" />
+        </div>
+        
+        <div id="selectedItem"></div>
+        
+        <div class="roulette-wrapper">
+            <div class="pointer"></div>
+            <svg id="roulette" viewBox="0 0 400 400"></svg>
+        </div>
+        
+        <!-- 操作パネル -->
+        <div class="controls">
+            <div class="input-group">
+                <input type="text" id="itemInput" placeholder="項目名">
+                <input type="text" id="itemDescInput" placeholder="詳細(任意)">
+                <button id="btnAdd" class="primary-btn" onclick="addItem()">追加</button>
+            </div>
+            
+            <div class="file-area">
+                <div class="file-group">
+                    <label class="file-input-wrapper" id="dropZone" data-tooltip="TXT:リストの一括追加 / CSV:状態を復元">
+                        <input type="file" id="fileInput" accept=".csv,.txt" title="">
+                        <div class="custom-file-btn" id="btnFileSelect">ファイル選択</div>
+                    </label>
+                    <button id="btnExport" class="primary-btn" onclick="exportCSV()" data-tooltip="現在の状態をCSV保存">
+                        <svg viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+                    </button>
+                    <button id="btnShare" class="primary-btn" onclick="shareCurrentState()" data-tooltip="現在の状態をURLで共有">
+                        <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+                    </button>
+                </div>
+                <div id="fileNameDisplay"></div>
+            </div>
+
+            <div class="setting-group">
+                <div class="spin-count-wrapper" id="spinCountWrapper" data-tooltip="連続して抽選を行う回数を指定">
+                    <span class="spin-label" id="txtSpinCount">連続回数:</span>
+                    <input type="number" id="spinCountInput" value="1" min="1" max="99">
+                </div>
+                <button id="fastModeBtn" class="icon-only" onclick="toggleFastMode()" data-tooltip="高速処理: 一括抽選モード">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+                </button>
+            </div>
+
+            <div class="action-group">
+                <button id="btnStart" class="primary-btn" onclick="startRoulette(false)" data-tooltip="抽選結果を除外しない">START</button>
+                <button id="btnStartRemove" class="primary-btn" onclick="startRoulette(true)" data-tooltip="抽選結果を除外する">START & REMOVE</button>
+            </div>
+            
+            <div class="action-group">
+                <button class="clear-btn" id="btnClear" onclick="clearAllData()" data-tooltip="データを全削除">CLEAR</button>
+                <button class="clear-btn" id="btnReset" onclick="resetStatus()" data-tooltip="履歴を削除しリセット">RESET</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右サイドバー -->
+    <div id="history">
+        <h2 id="txtHistoryHeader">抽選結果</h2>
+        <ul id="historyList"></ul>
+    </div>
+</div>
+
+<script>
+// --- 設定定数 ---
+const TEXT_CONFIG = {
+    titles: {
+        pageTitle: "stylish roulette",
+        listHeader: "抽選リスト",
+        historyHeader: "抽選結果",
+        defaultInputTitle: "ルーレット",
+        titlePlaceholder: "タイトルを入力"
+    },
+    tooltips: {
+        jackpot: "当たり設定",
+        trash: "削除",
+        remove: "外す",
+        restore: "戻す",
+        dropZone: "TXT:リストの一括追加 / CSV:状態を復元",
+        export: "現在の状態をCSV保存",
+        share: "現在の状態をURLで共有",
+        spinCount: "連続抽選回数を指定",
+        fastMode: "高速処理: 一括抽選モード",
+        start: "抽選結果を除外しない",
+        startRemove: "抽選結果を除外する",
+        clear: "初期状態に戻す",
+        reset: "抽選開始前に戻す",
+        mute: "効果音のオン/オフ"
+    },
+    messages: {
+        noItem: "抽選対象がありません。",
+        emptySample: "サンプルのCSVを出力しますか？",
+        confirmClear: "全てのデータ（リスト・履歴）を削除して初期状態に戻しますか？",
+        confirmReset: "履歴を削除し、全ての項目を抽選対象に戻しますか？",
+        outOfStock: "抽選対象がなくなりました。",
+        fastModeStatus: "⚡高速モード中",
+        shareSuccess: "共有URLをクリップボードに保存しました",
+        shareError: "URLが長すぎるなどの理由でコピーできませんでした。"
+    },
+    sampleData: [
+        { text: "りんご", desc: "赤い果物。医者いらず。", jackpot: false },
+        { text: "★大当たり", desc: "おめでとう！", jackpot: true }
+    ]
+};
+
+// --- サウンド管理オブジェクト ---
+const SoundManager = {
+    ctx: null,
+    isMuted: true,
+    init() {
+        if (!this.ctx) {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+            } catch(e) { console.error("AudioContext error:", e); }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(e => console.log(e));
+        }
+    },
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        const btn = document.getElementById('muteBtn');
+        if (this.isMuted) {
+            btn.classList.add('muted');
+            btn.setAttribute('title', 'ミュート解除');
+        } else {
+            btn.classList.remove('muted');
+            btn.setAttribute('title', 'ミュートする');
+            this.init();
+            this.playClick();
+        }
+    },
+    playClick() {
+        if (this.isMuted || !this.ctx) return;
+        try {
+            const t = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(880, t);
+            gain.gain.setValueAtTime(0.025, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.05);
+        } catch(e) {}
+    },
+    playBell() {
+        if (this.isMuted || !this.ctx) return;
+        try {
+            const t = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine'; 
+            osc.frequency.setValueAtTime(2000, t); 
+            gain.gain.setValueAtTime(0.1, t);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.5); 
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t);
+            osc.stop(t + 1.5);
+        } catch(e) {}
+    },
+    playFanfare() {
+        if (this.isMuted || !this.ctx) return;
+        try {
+            const t = this.ctx.currentTime;
+            const notes = [523.25, 659.25, 783.99, 1046.50]; 
+            const times = [0, 0.1, 0.2, 0.3];
+            const durations = [0.1, 0.1, 0.1, 0.8];
+            notes.forEach((freq, i) => {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, t + times[i]);
+                gain.gain.setValueAtTime(0.0, t + times[i]);
+                gain.gain.linearRampToValueAtTime(0.1, t + times[i] + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + times[i] + durations[i]);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(t + times[i]);
+                osc.stop(t + times[i] + durations[i]);
+            });
+        } catch(e) {}
+    }
+};
+
+// --- コンフェッティ（紙吹雪） ---
+const Confetti = {
+    canvas: null,
+    ctx: null,
+    particles: [],
+    animationId: null,
+    init() {
+        this.canvas = document.getElementById('confetti-canvas');
+        if(!this.canvas) return;
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+    },
+    resize() {
+        if(this.canvas) {
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+        }
+    },
+    start() {
+        if(!this.canvas) this.init();
+        if(!this.canvas) return;
+        this.particles = [];
+        for (let i = 0; i < 150; i++) {
+            this.particles.push({
+                x: Math.random() * this.canvas.width,
+                y: Math.random() * this.canvas.height - this.canvas.height,
+                w: Math.random() * 10 + 5,
+                h: Math.random() * 10 + 5,
+                dx: Math.random() * 4 - 2,
+                dy: Math.random() * 3 + 2,
+                color: `hsl(${Math.random() * 360}, 70%, 50%)`,
+                rotation: Math.random() * 360,
+                dRotation: Math.random() * 10 - 5
+            });
+        }
+        if (!this.animationId) this.animate();
+        setTimeout(() => this.stop(), 5000);
+    },
+    stop() {
+        this.particles = [];
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+            if(this.ctx) this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+    },
+    animate() {
+        if(!this.ctx) return;
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.particles.forEach((p, i) => {
+            p.y += p.dy;
+            p.x += p.dx;
+            p.rotation += p.dRotation;
+            this.ctx.save();
+            this.ctx.translate(p.x, p.y);
+            this.ctx.rotate(p.rotation * Math.PI / 180);
+            this.ctx.fillStyle = p.color;
+            this.ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            this.ctx.restore();
+            if (p.y > this.canvas.height) this.particles.splice(i, 1);
+        });
+        if (this.particles.length > 0) {
+            this.animationId = requestAnimationFrame(() => this.animate());
+        } else {
+            this.animationId = null;
+        }
+    }
+};
+
+let items = []; 
+let idCounter = 0;
+let angle = 0;
+let lastWinnerId = null;
+let currentSessionWinners = []; 
+let dragSrcEl = null;
+let lastModeRemove = false;
+let isSpinning = false;
+let isFastMode = false;
+
+// --- 初期化処理 (エラーハンドリング付き) ---
+document.addEventListener('DOMContentLoaded', () => { 
+    try {
+        Confetti.init();
+        initTooltip();
+        try { restoreFromShareURL(); } catch(e) { console.warn("Restore URL failed:", e); }
+        applyUIStrings(); 
+        if(items.length === 0) renderRoulette();
+        const wrapper = document.querySelector('.roulette-wrapper');
+        if(wrapper) {
+            wrapper.addEventListener('click', () => startRoulette(lastModeRemove));
+        }
+    } catch(err) {
+        console.error("Initialization error:", err);
+    }
+});
+
+document.getElementById('muteBtn').addEventListener('click', () => SoundManager.toggleMute());
+document.getElementById('darkModeBtn').addEventListener('click', () => {
+    document.body.classList.toggle('dark');
+    renderRoulette();
+});
+document.getElementById('itemInput').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
+document.getElementById('itemDescInput').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
+
+// --- 機能関数 ---
+function applyUIStrings() {
+    document.title = TEXT_CONFIG.titles.pageTitle;
+    document.getElementById('txtListHeader').textContent = TEXT_CONFIG.titles.listHeader;
+    document.getElementById('txtHistoryHeader').textContent = TEXT_CONFIG.titles.historyHeader;
+    const titleInput = document.getElementById('titleInput');
+    if(titleInput.value === "ルーレット" || titleInput.value === "") titleInput.value = TEXT_CONFIG.titles.defaultInputTitle;
+    titleInput.placeholder = TEXT_CONFIG.titles.titlePlaceholder;
+}
+
+function initTooltip() {
+    const existing = document.getElementById('global-tooltip');
+    if (existing) existing.remove();
+    const tooltip = document.createElement('div');
+    tooltip.id = 'global-tooltip';
+    document.body.appendChild(tooltip);
+    document.addEventListener('mouseover', (e) => {
+        const target = e.target.closest('[data-tooltip]');
+        if (target) {
+            tooltip.textContent = target.getAttribute('data-tooltip');
+            tooltip.style.opacity = '1';
+        }
+    });
+    document.addEventListener('mouseout', (e) => {
+        const target = e.target.closest('[data-tooltip]');
+        if (target) tooltip.style.opacity = '0';
+    });
+    document.addEventListener('mousemove', (e) => {
+        if (tooltip.style.opacity === '1') {
+            const offset = 15;
+            let left = e.clientX + offset;
+            let top = e.clientY + offset;
+            if (left + tooltip.offsetWidth > window.innerWidth) left = e.clientX - tooltip.offsetWidth - offset;
+            if (top + tooltip.offsetHeight > window.innerHeight) top = e.clientY - tooltip.offsetHeight - offset;
+            tooltip.style.left = `${left}px`;
+            tooltip.style.top = `${top}px`;
+        }
+    });
+}
+
+function showToast(message) {
+    const existing = document.querySelector('.toast-notification');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
+}
+
+function toggleFastMode() {
+    isFastMode = !isFastMode;
+    const btn = document.getElementById('fastModeBtn');
+    const display = document.getElementById('selectedItem');
+    if (isFastMode) {
+        btn.classList.add('fast-mode-on');
+        display.innerHTML = `<div style="opacity:0.8; font-size: 0.9em;">${TEXT_CONFIG.messages.fastModeStatus}</div>`;
+    } else {
+        btn.classList.remove('fast-mode-on');
+        display.innerHTML = ''; 
+    }
+    renderRoulette();
+}
+
+function addItem(text = null) {
+    const inputName = document.getElementById('itemInput');
+    const inputDesc = document.getElementById('itemDescInput');
+    
+    const val = text || (inputName ? inputName.value.trim() : "");
+    const desc = text ? '' : (inputDesc ? inputDesc.value.trim() : "");
+
+    if (!val) return;
+    
+    items.push({ id: idCounter++, text: val, active: true, desc: desc, isJackpot: false });
+    
+    if (!text && inputName) {
+        inputName.value = '';
+        if(inputDesc) inputDesc.value = '';
+        inputName.focus();
+    }
+    updateUI();
+}
+
+function loadAndProcessFile(file) {
+    if (!file) return;
+    document.getElementById('fileNameDisplay').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = ev => {
+        const content = ev.target.result;
+        if (content.startsWith('Type,') || content.includes('Type,')) {
+            restoreFromCSV(content);
+        } else {
+            content.split(/\r?\n/).filter(line => line.trim()).forEach(line => {
+                items.push({ id: idCounter++, text: line, active: true, desc: '', isJackpot: false });
+            });
+            updateUI();
+        }
+    };
+    reader.readAsText(file);
+}
+
+document.getElementById('fileInput').addEventListener('change', e => {
+    if(e.target.files && e.target.files.length > 0) {
+        loadAndProcessFile(e.target.files[0]);
+        e.target.value = ''; 
+    }
+});
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', e => { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('dragover'); });
+dropZone.addEventListener('drop', e => {
+    e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) loadAndProcessFile(e.dataTransfer.files[0]);
+});
+
+function exportCSV() {
+    const csvContent = [];
+    csvContent.push('Type,Text,Value1,Value2,Description');
+    const title = document.getElementById('titleInput').value.replace(/"/g, '""');
+    csvContent.push(`Title,"${title}",,,`);
+    
+    if (items.length === 0) {
+        if (!confirm(TEXT_CONFIG.messages.emptySample)) return;
+        TEXT_CONFIG.sampleData.forEach(d => {
+            csvContent.push(`Item,"${d.text}",1,${d.jackpot?1:0},"${d.desc}"`);
+        });
+    } else {
+        items.forEach(i => {
+            const text = `"${i.text.replace(/"/g, '""')}"`;
+            const desc = i.desc ? `"${i.desc.replace(/"/g, '""')}"` : '""';
+            csvContent.push(`Item,${text},${i.active ? 1 : 0},${i.isJackpot ? 1 : 0},${desc}`);
+        });
+        
+        const historyLis = document.querySelectorAll('#historyList li');
+        historyLis.forEach(li => {
+            const textRaw = li.textContent.split('（番号:')[0] || li.textContent;
+            const text = `"${textRaw.trim().replace(/"/g, '""')}"`;
+            const num = li.dataset.number || "";
+            const time = li.dataset.timestamp ? `"${li.dataset.timestamp}"` : '""';
+            const rawDesc = li.getAttribute('data-tooltip') || '';
+            const desc = `"${rawDesc.replace(/"/g, '""')}"`;
+            csvContent.push(`History,${text},${num},${time},${desc}`);
+        });
+    }
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `roulette_state_${new Date().toISOString().slice(0,19).replace(/[-T:]/g,'')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+async function shareCurrentState() {
+    if (items.length === 0) {
+        alert(TEXT_CONFIG.messages.noItem);
+        return;
+    }
+    const title = document.getElementById('titleInput').value;
+    const saveData = {
+        t: title,
+        i: items.map(item => ({ t: item.text, a: item.active ? 1 : 0, d: item.desc, j: item.isJackpot ? 1 : 0 }))
+    };
+    try {
+        const jsonStr = JSON.stringify(saveData);
+        const base64Params = btoa(unescape(encodeURIComponent(jsonStr)));
+        const url = new URL(window.location.href);
+        url.searchParams.set('data', base64Params);
+        if(navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(url.toString());
+            showToast(TEXT_CONFIG.messages.shareSuccess);
+        } else {
+            prompt("以下のURLをコピーしてください:", url.toString());
+        }
+    } catch (e) {
+        console.error(e);
+        showToast(TEXT_CONFIG.messages.shareError);
+    }
+}
+
+function restoreFromShareURL() {
+    const params = new URLSearchParams(window.location.search);
+    const data = params.get('data');
+    if (!data) return;
+    try {
+        const base64Str = data.replace(/ /g, '+');
+        const jsonStr = decodeURIComponent(escape(atob(base64Str)));
+        const savedData = JSON.parse(jsonStr);
+        if (savedData.t) document.getElementById('titleInput').value = savedData.t;
+        if (Array.isArray(savedData.i)) {
+            items = [];
+            idCounter = 0;
+            savedData.i.forEach(item => {
+                items.push({ 
+                    id: idCounter++, 
+                    text: item.t, 
+                    active: item.a === 1, 
+                    desc: item.d || '',
+                    isJackpot: item.j === 1 
+                });
+            });
+            document.getElementById('historyList').innerHTML = '';
+            document.getElementById('selectedItem').innerHTML = '';
+            try {
+                window.history.replaceState(null, '', window.location.pathname);
+            } catch(e) {}
+            updateUI();
+        }
+    } catch (e) { console.error("Failed to restore from URL", e); }
+}
+
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+            if (inQuote && line[i + 1] === '"') { current += '"'; i++; } else { inQuote = !inQuote; }
+        } else if (char === ',' && !inQuote) {
+            result.push(current); current = '';
+        } else { current += char; }
+    }
+    result.push(current);
+    return result;
+}
+
+function restoreFromCSV(csvText) {
+    items = [];
+    idCounter = 0;
+    lastWinnerId = null;
+    currentSessionWinners = [];
+    document.getElementById('historyList').innerHTML = '';
+    document.getElementById('selectedItem').innerHTML = '';
+    const lines = csvText.split(/\r?\n/);
+    
+    lines.forEach(line => {
+        if (!line.trim() || line.startsWith('Type,')) return; 
+        const cols = parseCSVLine(line);
+        if (cols.length < 2) return;
+        
+        const type = cols[0];
+        const text = cols[1];
+        
+        if (type === 'Item') {
+            const isActive = parseInt(cols[2]) === 1;
+            const isJackpot = parseInt(cols[3]) === 1;
+            const desc = cols[4] !== undefined ? cols[4] : '';
+            items.push({ id: idCounter++, text: text, active: isActive, desc: desc, isJackpot: !!isJackpot });
+
+        } else if (type === 'History') {
+            const num = cols[2];
+            const time = cols[3];
+            const desc = cols[4] !== undefined ? cols[4] : '';
+            let linkedItemId = null;
+            const matchingItem = items.find(i => i.text === text);
+            if (matchingItem) linkedItemId = matchingItem.id;
+            addHistory(text, num, desc, time, linkedItemId);
+
+        } else if (type === 'Title') {
+            document.getElementById('titleInput').value = text;
+        }
+    });
+    updateUI();
+}
+
+function updateUI() {
+    renderList();
+    renderRoulette();
+
+    if (lastWinnerId !== null) {
+        const winnerItem = items.find(i => i.id === lastWinnerId);
+        if (winnerItem) {
+            const currentNumber = items.indexOf(winnerItem) + 1;
+            const descHtml = winnerItem.desc ? `<div class="winner-desc">${winnerItem.desc}</div>` : '';
+            document.getElementById('selectedItem').innerHTML = `<div>${winnerItem.text}（番号: ${currentNumber}）</div>${descHtml}`;
+            
+            const wrapper = document.querySelector('.roulette-wrapper');
+            if (winnerItem.isJackpot) {
+                wrapper.classList.add('jackpot-win');
+            } else {
+                wrapper.classList.remove('jackpot-win');
+            }
+        } else {
+            document.getElementById('selectedItem').innerHTML = '';
+            lastWinnerId = null;
+            document.querySelector('.roulette-wrapper').classList.remove('jackpot-win');
+        }
+    } else {
+        document.querySelector('.roulette-wrapper').classList.remove('jackpot-win');
+    }
+    updateHistoryNumbers();
+}
+
+function updateHistoryNumbers() {
+    const listItems = document.querySelectorAll('#historyList li');
+    listItems.forEach(li => {
+        const itemId = li.dataset.itemId;
+        if (itemId !== undefined && itemId !== null) {
+            const currentIdx = items.findIndex(i => i.id == itemId);
+            if (currentIdx !== -1) {
+                const newNum = currentIdx + 1;
+                const textPart = li.textContent.split('（番号:')[0];
+                const time = li.dataset.timestamp || '';
+                li.textContent = `${textPart}（番号: ${newNum}） (${time})`;
+                li.dataset.number = newNum;
+            }
+        }
+    });
+}
+
+function clearAllData() {
+    if (!items.length && !document.getElementById('historyList').children.length) return;
+    if (confirm(TEXT_CONFIG.messages.confirmClear)) {
+        items = [];
+        document.getElementById('historyList').innerHTML = '';
+        document.getElementById('selectedItem').innerHTML = '';
+        lastWinnerId = null;
+        currentSessionWinners = [];
+        idCounter = 0;
+        updateUI();
+    }
+}
+
+function resetStatus() {
+    if (confirm(TEXT_CONFIG.messages.confirmReset)) {
+        document.getElementById('historyList').innerHTML = '';
+        document.getElementById('selectedItem').innerHTML = '';
+        items.forEach(i => i.active = true);
+        lastWinnerId = null;
+        currentSessionWinners = [];
+        Confetti.stop();
+        updateUI();
+    }
+}
+
+// DnD handlers
+function handleDragStart(e) {
+    if(e.target.tagName.toLowerCase() === 'button' || e.target.closest('button')) {
+        e.preventDefault(); return;
+    }
+    this.classList.add('dragging');
+    dragSrcEl = this;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.innerHTML);
+}
+function handleDragOver(e) { if (e.preventDefault) e.preventDefault(); e.dataTransfer.dropEffect = 'move'; this.classList.add('over'); return false; }
+function handleDragLeave(e) { this.classList.remove('over'); }
+function handleDrop(e) {
+    if (e.stopPropagation) e.stopPropagation();
+    const destEl = this;
+    destEl.classList.remove('over');
+    if (dragSrcEl !== destEl) {
+        const srcIndex = parseInt(dragSrcEl.dataset.index);
+        const destIndex = parseInt(destEl.dataset.index);
+        if(items[srcIndex]) {
+            const movedItem = items[srcIndex];
+            items.splice(srcIndex, 1);
+            items.splice(destIndex, 0, movedItem);
+            updateUI();
+        }
+    }
+    return false;
+}
+function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    document.querySelectorAll('#list li').forEach(li => { li.classList.remove('over'); li.classList.remove('dragging'); });
+}
+
+function renderList() {
+    const ul = document.getElementById('list');
+    ul.innerHTML = '';
+    items.forEach((item, index) => {
+        const li = document.createElement('li');
+        li.dataset.index = index;
+        li.setAttribute('draggable', 'true'); 
+        li.addEventListener('dragstart', handleDragStart, false);
+        li.addEventListener('dragover', handleDragOver, false);
+        li.addEventListener('dragleave', handleDragLeave, false);
+        li.addEventListener('drop', handleDrop, false);
+        li.addEventListener('dragend', handleDragEnd, false);
+
+        if (currentSessionWinners.includes(item.id)) li.classList.add('final-highlight');
+        else if (!item.active) li.classList.add('inactive');
+        
+        if (item.isJackpot) li.classList.add('jackpot-item');
+
+        const trashBtn = document.createElement('button');
+        trashBtn.className = 'icon-btn trash-btn';
+        trashBtn.setAttribute('data-tooltip', TEXT_CONFIG.tooltips.trash);
+        trashBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
+        trashBtn.onclick = () => { items.splice(index, 1); updateUI(); };
+
+        const span = document.createElement('span');
+        span.className = 'item-text';
+        span.textContent = `${index + 1}. ${item.text}`;
+        if (item.desc) span.setAttribute('data-tooltip', item.desc);
+
+        // ★ボタン
+        const starBtn = document.createElement('button');
+        starBtn.className = `icon-btn star-btn ${item.isJackpot ? 'is-active' : ''}`;
+        starBtn.setAttribute('data-tooltip', TEXT_CONFIG.tooltips.jackpot);
+        starBtn.innerHTML = '★';
+        starBtn.onclick = (e) => {
+            e.stopPropagation();
+            item.isJackpot = !item.isJackpot;
+            updateUI();
+        };
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'icon-btn toggle-btn';
+        toggleBtn.textContent = item.active ? '✕' : '♻';
+        toggleBtn.setAttribute('data-tooltip', item.active ? TEXT_CONFIG.tooltips.remove : TEXT_CONFIG.tooltips.restore);
+        toggleBtn.onclick = () => { item.active = !item.active; updateUI(); };
+
+        li.append(trashBtn, starBtn, span, toggleBtn);
+        ul.appendChild(li);
+    });
+}
+
+function renderRoulette() {
+    const svg = document.getElementById('roulette');
+    const isDark = document.body.classList.contains('dark');
+    const startColor = isDark ? 200 : 255;
+    const endColor = isDark ? 60 : 150;
+    const activeList = items.filter(i => i.active);
+
+    if (!activeList.length) {
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const radialGradient = document.createElementNS('http://www.w3.org/2000/svg', 'radialGradient');
+        radialGradient.setAttribute('id', 'emptyGrad');
+        radialGradient.innerHTML = `<stop offset="0%" stop-color="${isDark ? '#444' : '#fff'}" /><stop offset="100%" stop-color="${isDark ? '#111' : '#ddd'}" />`;
+        defs.appendChild(radialGradient);
+        svg.innerHTML = ''; svg.appendChild(defs);
+        svg.innerHTML += `<circle cx="200" cy="200" r="190" fill="url(#emptyGrad)" stroke="${isDark ? '#333' : '#ccc'}" stroke-width="2"/>`;
+        return;
+    }
+
+    svg.innerHTML = '';
+    const segmentAngle = 360 / activeList.length;
+    const textColor = isDark ? '#fff' : '#333';
+
+    activeList.forEach((item, i) => {
+        const startA = segmentAngle * i;
+        const endA = startA + segmentAngle; 
+        const d2r = Math.PI / 180;
+        const x1 = 200 + 190 * Math.cos(startA * d2r);
+        const y1 = 200 + 190 * Math.sin(startA * d2r);
+        const x2 = 200 + 190 * Math.cos(endA * d2r);
+        const y2 = 200 + 190 * Math.sin(endA * d2r);
+        
+        // 【変更】Jackpotでも塗りつぶし色は変えず、通常のグレー階調を使用
+        const ratio = activeList.length > 1 ? i / (activeList.length - 1) : 0;
+        const gray = Math.round(startColor - (startColor - endColor) * ratio);
+        const color = `rgb(${gray},${gray},${gray})`;
+        
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', `M200,200 L${x1},${y1} A190,190 0 ${segmentAngle > 180 ? 1 : 0} 1 ${x2},${y2} Z`);
+        path.setAttribute('fill', color);
+        
+        // 【変更】Jackpot項目の場合、枠線を赤く太くし、発光させる
+        if(item.isJackpot) {
+            path.setAttribute('stroke', 'var(--danger-color)');
+            path.setAttribute('stroke-width', '4');
+            path.setAttribute('filter', 'drop-shadow(0 0 6px var(--danger-color))');
+            // Z-index的な制御がないため、隣接する細い枠線の上に描画されるとは限らないが、
+            // drop-shadowにより発光感は十分に得られる
+        } else {
+            path.setAttribute('stroke', isDark ? '#333' : '#fff');
+            path.setAttribute('stroke-width', '1');
+        }
+        
+        svg.appendChild(path);
+
+        if (!isFastMode) {
+            const midAngle = startA + segmentAngle / 2;
+            const textRadius = 160; 
+            const tx = 200 + textRadius * Math.cos(midAngle * d2r);
+            const ty = 200 + textRadius * Math.sin(midAngle * d2r);
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', tx); text.setAttribute('y', ty);
+            // Jackpot時の文字色は白(背景グレー上なので)またはテーマ色に合わせる
+            // 背景がグレーなので、Jackpotでも通常の文字色の方が見やすい場合があるが、
+            // 既存の「Jackpotは特別」感を出すなら赤文字もあり。
+            // ここでは視認性重視で、Jackpot時は赤色文字にする。
+            text.setAttribute('fill', item.isJackpot ? 'var(--danger-color)' : textColor);
+            text.setAttribute('font-size', activeList.length > 20 ? '10' : '14'); 
+            text.setAttribute('font-weight', 'bold');
+            text.setAttribute('text-anchor', 'middle'); 
+            text.setAttribute('dominant-baseline', 'middle'); 
+            text.setAttribute('stroke', isDark ? '#333' : '#eee'); 
+            text.setAttribute('stroke-width', '0.5');
+            text.setAttribute('paint-order', 'stroke');
+            text.setAttribute('transform', `rotate(${midAngle}, ${tx}, ${ty})`);
+            const originalIndex = items.findIndex(it => it.id === item.id) + 1;
+            text.textContent = originalIndex;
+            svg.appendChild(text);
+        }
+    });
+    
+    const borderCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    borderCircle.setAttribute('cx', '200'); borderCircle.setAttribute('cy', '200');
+    borderCircle.setAttribute('r', '190'); borderCircle.setAttribute('fill', 'none');
+    borderCircle.setAttribute('stroke', 'var(--text-color)');
+    borderCircle.setAttribute('stroke-width', '4');
+    borderCircle.setAttribute('opacity', '0.2');
+    svg.appendChild(borderCircle);
+}
+
+async function startRoulette(removeAfter) {
+    if (isSpinning) return;
+    
+    SoundManager.init();
+    Confetti.stop();
+
+    let count = parseInt(document.getElementById('spinCountInput').value);
+    if (isNaN(count) || count < 1) count = 1;
+
+    const activeList = items.filter(i => i.active);
+    if (!activeList.length) return alert(TEXT_CONFIG.messages.noItem);
+
+    isSpinning = true;
+    lastModeRemove = removeAfter;
+    
+    currentSessionWinners = []; 
+    lastWinnerId = null;
+    document.getElementById('selectedItem').innerHTML = ''; 
+    updateUI();
+
+    if (isFastMode) {
+        // Fast Mode
+        const results = [];
+        for (let i = 0; i < count; i++) {
+            const activeList = items.filter(item => item.active);
+            if (activeList.length === 0) break;
+            const randomIndex = Math.floor(Math.random() * activeList.length);
+            const winner = activeList[randomIndex];
+            currentSessionWinners.push(winner.id);
+            results.push(winner);
+            if (removeAfter) {
+                const targetItem = items.find(it => it.id === winner.id);
+                if(targetItem) targetItem.active = false;
+            }
+        }
+
+        if (results.length === 0) {
+            isSpinning = false;
+            return alert(TEXT_CONFIG.messages.noItem);
+        }
+
+        document.getElementById('selectedItem').innerHTML = `<div style="opacity:0.8; font-size: 0.9em;">${TEXT_CONFIG.messages.fastModeStatus}</div>`;
+
+        await new Promise(resolve => {
+            const duration = 2000;
+            const startTime = performance.now();
+            const startAngle = angle;
+            const targetAngle = angle - 360 * 10 - Math.random() * 360; 
+            let lastSoundTime = 0;
+            function animate(time) {
+                const t = Math.min((time - startTime) / duration, 1);
+                const progress = 1 - Math.pow(1 - t, 3);
+                angle = startAngle + (targetAngle - startAngle) * progress;
+                document.getElementById('roulette').style.transform = `rotate(${angle}deg)`;
+                
+                if (time - lastSoundTime > 80 && t < 0.95) {
+                    SoundManager.playClick();
+                    lastSoundTime = time;
+                }
+
+                if (t < 1) requestAnimationFrame(animate);
+                else resolve();
+            }
+            requestAnimationFrame(animate);
+        });
+        
+        let hasJackpot = false;
+        results.forEach(winner => {
+            const originalIndex = items.findIndex(it => it.id === winner.id) + 1;
+            addHistory(winner.text, originalIndex, winner.desc, null, winner.id);
+            if(winner.isJackpot) hasJackpot = true;
+        });
+        
+        if (hasJackpot) {
+            SoundManager.playFanfare();
+            Confetti.start();
+        } else {
+            SoundManager.playBell();
+        }
+        
+        lastWinnerId = null;
+        updateUI(); 
+        isSpinning = false;
+
+    } else {
+        // Normal Mode
+        for (let i = 0; i < count; i++) {
+            const currentActive = items.filter(item => item.active);
+            if (currentActive.length === 0) {
+                alert(TEXT_CONFIG.messages.outOfStock);
+                break;
+            }
+            await spinOnce(currentActive, removeAfter);
+            if (i < count - 1) await new Promise(r => setTimeout(r, 800));
+        }
+        isSpinning = false;
+    }
+}
+
+function spinOnce(activeList, removeAfter) {
+    return new Promise(resolve => {
+        const randomIndex = Math.floor(Math.random() * activeList.length);
+        const winner = activeList[randomIndex];
+        const segmentAngle = 360 / activeList.length;
+        
+        const winnerCenterAngle = (segmentAngle * randomIndex) + (segmentAngle / 2);
+        
+        const baseRotations = 360 * 5; 
+        let distToTarget = (-winnerCenterAngle - (angle % 360)) % 360;
+        if (distToTarget > 0) distToTarget -= 360;
+        
+        const finalAngle = angle - baseRotations + distToTarget;
+        
+        const duration = 2500;
+        const startTime = performance.now();
+
+        let lastSegmentIndex = -1;
+
+        function animate(time) {
+            const t = Math.min((time - startTime) / duration, 1);
+            const progress = 1 - Math.pow(1 - t, 3);
+            const currentAnimAngle = angle + (finalAngle - angle) * progress;
+            document.getElementById('roulette').style.transform = `rotate(${currentAnimAngle}deg)`;
+            
+            const normalizedAngle = currentAnimAngle % 360;
+            const effectiveAngle = (360 - normalizedAngle) % 360; 
+            const currentSegment = Math.floor(effectiveAngle / segmentAngle) % activeList.length;
+            
+            if (currentSegment !== lastSegmentIndex && t < 1) {
+                SoundManager.playClick();
+                lastSegmentIndex = currentSegment;
+            }
+
+            const currentItem = activeList[currentSegment];
+            if (currentItem) {
+                document.querySelectorAll('#list li').forEach((li, idx) => {
+                    const isMatch = items[idx].id === currentItem.id;
+                    if (!li.classList.contains('final-highlight')) {
+                        li.classList.toggle('highlight', isMatch);
+                    }
+                });
+            }
+
+            if (t < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                angle = finalAngle;
+                
+                const originalIndex = items.findIndex(i => i.id === winner.id);
+                lastWinnerId = winner.id;
+                currentSessionWinners.push(winner.id);
+                
+                addHistory(winner.text, originalIndex + 1, winner.desc, null, winner.id);
+
+                if (removeAfter) winner.active = false;
+                
+                updateUI();
+
+                if (winner.isJackpot) {
+                    SoundManager.playFanfare();
+                    Confetti.start();
+                } else {
+                    SoundManager.playBell();
+                }
+                
+                resolve();
+            }
+        }
+        requestAnimationFrame(animate);
+    });
+}
+
+function addHistory(text, index, desc = '', timestamp = null, itemId = null) {
+    const ul = document.getElementById('historyList');
+    const li = document.createElement('li');
+    const timeStr = timestamp || new Date().toLocaleTimeString();
+    li.dataset.number = index;
+    li.dataset.timestamp = timeStr;
+    if (itemId !== null) li.dataset.itemId = itemId;
+    li.textContent = `${text}（番号: ${index}） (${timeStr})`;
+    if (desc) li.setAttribute('data-tooltip', desc);
+    ul.insertBefore(li, ul.firstChild);
+}
+</script>
+</body>
+</html>
