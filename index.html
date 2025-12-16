@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -102,7 +103,7 @@
         z-index: 20;
     }
 
-    /* コンフェッティ用キャンバス: クリックを確実に通す設定 */
+    /* コンフェッティ用キャンバス */
     #confetti-canvas {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         pointer-events: none !important;
@@ -487,6 +488,21 @@
     .modal-btn-cancel { background: transparent; color: var(--text-color); border: 1px solid var(--border-color); }
     .modal-btn-save { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
 
+    /* 確認用モーダル (Confirm Modal) */
+    .confirm-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 25000;
+        align-items: center; justify-content: center; backdrop-filter: blur(2px);
+    }
+    .confirm-overlay.show { display: flex; }
+    .confirm-box {
+        background: var(--card-bg); padding: 24px; border-radius: 12px;
+        max-width: 400px; width: 90%; text-align: center;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    .confirm-msg { font-size: 16px; margin-bottom: 20px; line-height: 1.5; }
+    .confirm-actions { display: flex; justify-content: center; gap: 12px; }
+
     /* 統計用スタイル */
     .stats-list {
         display: flex; flex-direction: column; gap: 8px;
@@ -606,8 +622,8 @@
             </div>
             
             <div class="action-group">
-                <button class="clear-btn" id="btnClear" onclick="clearAllData()" data-tooltip="データを全削除">CLEAR</button>
-                <button class="clear-btn" id="btnReset" onclick="resetStatus()" data-tooltip="履歴を削除しリセット">RESET</button>
+                <button class="clear-btn" id="btnClear" onclick="confirmAction('clear')" data-tooltip="データを全削除">CLEAR</button>
+                <button class="clear-btn" id="btnReset" onclick="confirmAction('reset')" data-tooltip="履歴を削除しリセット">RESET</button>
             </div>
         </div>
     </div>
@@ -666,6 +682,17 @@
     </div>
 </div>
 
+<!-- 汎用確認モーダル  -->
+<div id="confirmOverlay" class="confirm-overlay">
+    <div class="confirm-box">
+        <div id="confirmMessage" class="confirm-msg"></div>
+        <div class="confirm-actions">
+            <button class="modal-btn modal-btn-cancel" onclick="closeConfirm()">キャンセル</button>
+            <button id="confirmOkBtn" class="modal-btn modal-btn-save">OK</button>
+        </div>
+    </div>
+</div>
+
 <script>
 // --- 設定定数 ---
 const TEXT_CONFIG = {
@@ -716,7 +743,7 @@ const TEXT_CONFIG = {
 // --- サウンド管理オブジェクト ---
 const SoundManager = {
     ctx: null,
-    isMuted: false, // デフォルトで音あり
+    isMuted: false, 
     init() {
         if (!this.ctx) {
             try {
@@ -742,7 +769,6 @@ const SoundManager = {
             this.init();
             this.playClick();
         }
-        // 即座にツールチップを更新
         if (tooltip && tooltip.style.opacity === '1') {
             tooltip.textContent = btn.getAttribute('data-tooltip');
         }
@@ -1048,19 +1074,16 @@ function calculateAndShowStats() {
     }
 
     const counts = {};
-    const descs = {}; // 項目名に対する詳細テキストを保存
+    const descs = {}; 
     let total = 0;
 
-    // 履歴とアイテムリストから情報を収集
     historyLis.forEach(li => {
-        // "項目名（番号: 1） (12:00:00)" の形式から項目名を抽出
         const textRaw = li.textContent.split('（番号:')[0] || li.textContent;
         const name = textRaw.trim();
         if (name) {
             counts[name] = (counts[name] || 0) + 1;
             total++;
             
-            // 詳細テキストの取得（履歴のdata-tooltip、または既存itemsから検索）
             if (!descs[name]) {
                 const historyDesc = li.getAttribute('data-tooltip');
                 if (historyDesc) {
@@ -1091,7 +1114,6 @@ function calculateAndShowStats() {
             const row = document.createElement('div');
             row.className = 'stat-row';
             
-            // ラベル部分
             const labelDiv = document.createElement('div');
             labelDiv.className = 'stat-label';
             labelDiv.textContent = stat.name;
@@ -1106,12 +1128,9 @@ function calculateAndShowStats() {
                 <div class="stat-val">${stat.count}</div>
             `;
             
-            // labelDivを先頭に挿入
             row.insertBefore(labelDiv, row.firstChild);
-            
             statsBody.appendChild(row);
             
-            // アニメーション用
             setTimeout(() => {
                 const bar = row.querySelector('.stat-bar');
                 if(bar) bar.style.width = percent + '%';
@@ -1126,12 +1145,39 @@ function closeStatsModal() {
     document.getElementById('statsModal').classList.remove('show');
 }
 
-// モーダル外クリックで閉じる処理の追加
+// --- 確認モーダル関連 ---
+let confirmCallback = null;
+function confirmAction(type) {
+    if (type === 'clear') {
+        if (!items.length && !document.getElementById('historyList').children.length) return;
+        document.getElementById('confirmMessage').textContent = TEXT_CONFIG.messages.confirmClear;
+        confirmCallback = clearAllData;
+    } else if (type === 'reset') {
+        document.getElementById('confirmMessage').textContent = TEXT_CONFIG.messages.confirmReset;
+        confirmCallback = resetStatus;
+    } else if (type === 'sample') {
+        document.getElementById('confirmMessage').textContent = TEXT_CONFIG.messages.emptySample;
+        confirmCallback = doExportSample;
+    }
+    document.getElementById('confirmOverlay').classList.add('show');
+}
+function closeConfirm() {
+    document.getElementById('confirmOverlay').classList.remove('show');
+    confirmCallback = null;
+}
+document.getElementById('confirmOkBtn').onclick = () => {
+    if (confirmCallback) confirmCallback();
+    closeConfirm();
+};
+
+// モーダル外クリック処理
 window.addEventListener('click', (e) => {
     const editModal = document.getElementById('editModal');
     const statsModal = document.getElementById('statsModal');
+    const confirmOverlay = document.getElementById('confirmOverlay');
     if (e.target === editModal) closeEditModal();
     if (e.target === statsModal) closeStatsModal();
+    if (e.target === confirmOverlay) closeConfirm();
 });
 
 function loadAndProcessFile(file) {
@@ -1168,36 +1214,51 @@ dropZone.addEventListener('drop', e => {
 });
 
 function exportCSV() {
+    if (items.length === 0) {
+        confirmAction('sample');
+        return;
+    }
+    doExport();
+}
+
+function doExportSample() {
+    const csvContent = [];
+    csvContent.push('Type,Text,Value1,Value2,Description,Weight');
+    csvContent.push(`Title,"${document.getElementById('titleInput').value.replace(/"/g, '""')}",,,,`);
+    TEXT_CONFIG.sampleData.forEach(d => {
+        csvContent.push(`Item,"${d.text}",1,${d.jackpot?1:0},"${d.desc}",${d.weight}`);
+    });
+    downloadCSV(csvContent.join('\n'));
+}
+
+function doExport() {
     const csvContent = [];
     csvContent.push('Type,Text,Value1,Value2,Description,Weight');
     const title = document.getElementById('titleInput').value.replace(/"/g, '""');
     csvContent.push(`Title,"${title}",,,,`);
     
-    if (items.length === 0) {
-        if (!confirm(TEXT_CONFIG.messages.emptySample)) return;
-        TEXT_CONFIG.sampleData.forEach(d => {
-            csvContent.push(`Item,"${d.text}",1,${d.jackpot?1:0},"${d.desc}",${d.weight}`);
-        });
-    } else {
-        items.forEach(i => {
-            const text = `"${i.text.replace(/"/g, '""')}"`;
-            const desc = i.desc ? `"${i.desc.replace(/"/g, '""')}"` : '""';
-            const weight = i.weight !== undefined ? i.weight : 1;
-            csvContent.push(`Item,${text},${i.active ? 1 : 0},${i.isJackpot ? 1 : 0},${desc},${weight}`);
-        });
-        
-        const historyLis = document.querySelectorAll('#historyList li');
-        historyLis.forEach(li => {
-            const textRaw = li.textContent.split('（番号:')[0] || li.textContent;
-            const text = `"${textRaw.trim().replace(/"/g, '""')}"`;
-            const num = li.dataset.number || "";
-            const time = li.dataset.timestamp ? `"${li.dataset.timestamp}"` : '""';
-            const rawDesc = li.getAttribute('data-tooltip') || '';
-            const desc = `"${rawDesc.replace(/"/g, '""')}"`;
-            csvContent.push(`History,${text},${num},${time},${desc},`);
-        });
-    }
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent.join('\n')], { type: 'text/csv' });
+    items.forEach(i => {
+        const text = `"${i.text.replace(/"/g, '""')}"`;
+        const desc = i.desc ? `"${i.desc.replace(/"/g, '""')}"` : '""';
+        const weight = i.weight !== undefined ? i.weight : 1;
+        csvContent.push(`Item,${text},${i.active ? 1 : 0},${i.isJackpot ? 1 : 0},${desc},${weight}`);
+    });
+    
+    const historyLis = document.querySelectorAll('#historyList li');
+    historyLis.forEach(li => {
+        const textRaw = li.textContent.split('（番号:')[0] || li.textContent;
+        const text = `"${textRaw.trim().replace(/"/g, '""')}"`;
+        const num = li.dataset.number || "";
+        const time = li.dataset.timestamp ? `"${li.dataset.timestamp}"` : '""';
+        const rawDesc = li.getAttribute('data-tooltip') || '';
+        const desc = `"${rawDesc.replace(/"/g, '""')}"`;
+        csvContent.push(`History,${text},${num},${time},${desc},`);
+    });
+    downloadCSV(csvContent.join('\n'));
+}
+
+function downloadCSV(content) {
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), content], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -1208,7 +1269,7 @@ function exportCSV() {
 
 async function shareCurrentState() {
     if (items.length === 0) {
-        alert(TEXT_CONFIG.messages.noItem);
+        showToast(TEXT_CONFIG.messages.noItem);
         return;
     }
     const title = document.getElementById('titleInput').value;
@@ -1341,16 +1402,20 @@ function updateUI() {
             const wrapper = document.querySelector('.roulette-wrapper');
             if (winnerItem.isJackpot) {
                 wrapper.classList.add('jackpot-win');
+                document.querySelector('.main').classList.add('bringing-front'); // ジャックポット時のみ前面へ
             } else {
                 wrapper.classList.remove('jackpot-win');
+                document.querySelector('.main').classList.remove('bringing-front');
             }
         } else {
             document.getElementById('selectedItem').innerHTML = '';
             lastWinnerId = null;
             document.querySelector('.roulette-wrapper').classList.remove('jackpot-win');
+            document.querySelector('.main').classList.remove('bringing-front');
         }
     } else {
         document.querySelector('.roulette-wrapper').classList.remove('jackpot-win');
+        document.querySelector('.main').classList.remove('bringing-front');
     }
     updateHistoryNumbers();
 }
@@ -1373,28 +1438,23 @@ function updateHistoryNumbers() {
 }
 
 function clearAllData() {
-    if (!items.length && !document.getElementById('historyList').children.length) return;
-    if (confirm(TEXT_CONFIG.messages.confirmClear)) {
-        items = [];
-        document.getElementById('historyList').innerHTML = '';
-        document.getElementById('selectedItem').innerHTML = '';
-        lastWinnerId = null;
-        currentSessionWinners = [];
-        idCounter = 0;
-        updateUI();
-    }
+    items = [];
+    document.getElementById('historyList').innerHTML = '';
+    document.getElementById('selectedItem').innerHTML = '';
+    lastWinnerId = null;
+    currentSessionWinners = [];
+    idCounter = 0;
+    updateUI();
 }
 
 function resetStatus() {
-    if (confirm(TEXT_CONFIG.messages.confirmReset)) {
-        document.getElementById('historyList').innerHTML = '';
-        document.getElementById('selectedItem').innerHTML = '';
-        items.forEach(i => i.active = true);
-        lastWinnerId = null;
-        currentSessionWinners = [];
-        Confetti.stop();
-        updateUI();
-    }
+    document.getElementById('historyList').innerHTML = '';
+    document.getElementById('selectedItem').innerHTML = '';
+    items.forEach(i => i.active = true);
+    lastWinnerId = null;
+    currentSessionWinners = [];
+    Confetti.stop();
+    updateUI();
 }
 
 // DnD handlers
@@ -1443,7 +1503,6 @@ function renderList() {
         li.addEventListener('drop', handleDrop, false);
         li.addEventListener('dragend', handleDragEnd, false);
         
-        // ダブルクリックで編集
         li.ondblclick = () => openEditModal(item);
 
         if (currentSessionWinners.includes(item.id)) li.classList.add('final-highlight');
@@ -1462,7 +1521,6 @@ function renderList() {
         span.textContent = `${index + 1}. ${item.text}`;
         if (item.desc) span.setAttribute('data-tooltip', item.desc);
 
-        // ★ボタン
         const starBtn = document.createElement('button');
         starBtn.className = `icon-btn star-btn ${item.isJackpot ? 'is-active' : ''}`;
         starBtn.setAttribute('data-tooltip', TEXT_CONFIG.tooltips.jackpot);
@@ -1484,7 +1542,6 @@ function renderList() {
     });
 }
 
-// 確率に基づく抽選関数
 function weightedRandom(list) {
     if(!list || list.length === 0) return null;
     let totalWeight = 0;
@@ -1521,7 +1578,6 @@ function renderRoulette() {
     const segmentAngle = 360 / activeList.length;
     const textColor = isDark ? '#fff' : '#333';
 
-    // 描画順序制御用の配列
     const standardPaths = [];
     const jackpotPaths = [];
     const textElements = [];
@@ -1547,11 +1603,11 @@ function renderRoulette() {
             path.setAttribute('stroke', 'var(--danger-color)');
             path.setAttribute('stroke-width', '4');
             path.setAttribute('filter', 'drop-shadow(0 0 6px var(--danger-color))');
-            jackpotPaths.push(path); // ジャックポットは後で描画
+            jackpotPaths.push(path); 
         } else {
             path.setAttribute('stroke', isDark ? '#333' : '#fff');
             path.setAttribute('stroke-width', '1');
-            standardPaths.push(path); // 通常は先に描画
+            standardPaths.push(path); 
         }
         
         if (!isFastMode) {
@@ -1576,7 +1632,6 @@ function renderRoulette() {
         }
     });
     
-    // 描画順序: 通常パス -> ジャックポットパス -> テキスト
     standardPaths.forEach(p => svg.appendChild(p));
     jackpotPaths.forEach(p => svg.appendChild(p));
     textElements.forEach(t => svg.appendChild(t));
@@ -1600,7 +1655,10 @@ async function startRoulette(removeAfter) {
     if (isNaN(count) || count < 1) count = 1;
 
     const activeList = items.filter(i => i.active);
-    if (!activeList.length) return alert(TEXT_CONFIG.messages.noItem);
+    if (!activeList.length) {
+        showToast(TEXT_CONFIG.messages.noItem);
+        return;
+    }
 
     isSpinning = true;
     lastModeRemove = removeAfter;
@@ -1611,13 +1669,11 @@ async function startRoulette(removeAfter) {
     updateUI();
 
     if (isFastMode) {
-        // Fast Mode
         const results = [];
         for (let i = 0; i < count; i++) {
             const activeList = items.filter(item => item.active);
             if (activeList.length === 0) break;
             
-            // 確率に基づき決定
             const winner = weightedRandom(activeList);
             
             currentSessionWinners.push(winner.id);
@@ -1630,7 +1686,8 @@ async function startRoulette(removeAfter) {
 
         if (results.length === 0) {
             isSpinning = false;
-            return alert(TEXT_CONFIG.messages.noItem);
+            showToast(TEXT_CONFIG.messages.noItem);
+            return;
         }
 
         document.getElementById('selectedItem').innerHTML = `<div style="opacity:0.8; font-size: 0.9em;">${TEXT_CONFIG.messages.fastModeStatus}</div>`;
@@ -1677,11 +1734,10 @@ async function startRoulette(removeAfter) {
         isSpinning = false;
 
     } else {
-        // Normal Mode
         for (let i = 0; i < count; i++) {
             const currentActive = items.filter(item => item.active);
             if (currentActive.length === 0) {
-                alert(TEXT_CONFIG.messages.outOfStock);
+                showToast(TEXT_CONFIG.messages.outOfStock);
                 break;
             }
             await spinOnce(currentActive, removeAfter);
@@ -1693,15 +1749,9 @@ async function startRoulette(removeAfter) {
 
 function spinOnce(activeList, removeAfter) {
     return new Promise(resolve => {
-        // 確率(Weight)に基づき当選者を決定する
         const winner = weightedRandom(activeList);
-        
-        // 当選者のインデックスを取得
         const winnerIndex = activeList.indexOf(winner);
-        
         const segmentAngle = 360 / activeList.length;
-        
-        // 当選セグメントの中心角度
         const winnerCenterAngle = (segmentAngle * winnerIndex) + (segmentAngle / 2);
         
         const baseRotations = 360 * 5; 
